@@ -1,0 +1,419 @@
+{
+  "features" : [ {
+    "name" : "תכולת תיק ← תקציר",
+    "path" : [ "תכולת תיק", "תקציר" ],
+    "displayName" : "תקציר",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    },
+    "heroScreenshot" : "screenshots/info_20260115_060412_513_1.png"
+  }, {
+    "name" : "תהליך ביקור ← לשוניות בביקור ← לשונית מרשם",
+    "path" : [ "תהליך ביקור", "לשוניות בביקור", "לשונית מרשם" ],
+    "displayName" : "לשונית מרשם",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    },
+    "heroScreenshot" : "screenshots/info_20260115_060656_299_2.png"
+  }, {
+    "name" : "תהליך ביקור ← לשוניות בביקור ← לשונית מעבדה",
+    "path" : [ "תהליך ביקור", "לשוניות בביקור", "לשונית מעבדה" ],
+    "displayName" : "לשונית מעבדה",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← לשוניות בביקור ← לשונית תלונות ובדיקה",
+    "path" : [ "תהליך ביקור", "לשוניות בביקור", "לשונית תלונות ובדיקה" ],
+    "displayName" : "לשונית תלונות ובדיקה",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← לשוניות בביקור ← לשונית מעקב",
+    "path" : [ "תהליך ביקור", "לשוניות בביקור", "לשונית מעקב" ],
+    "displayName" : "לשונית מעקב",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← לשוניות בביקור ← לשונית אבחנה",
+    "path" : [ "תהליך ביקור", "לשוניות בביקור", "לשונית אבחנה" ],
+    "displayName" : "לשונית אבחנה",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    },
+    "heroScreenshot" : "screenshots/info_20260115_064155_599_26.png"
+  }, {
+    "name" : "תהליך ביקור ← לשוניות בביקור ← לשונית הפניה",
+    "path" : [ "תהליך ביקור", "לשוניות בביקור", "לשונית הפניה" ],
+    "displayName" : "לשונית הפניה",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    },
+    "heroScreenshot" : "screenshots/info_20260115_065906_471_29.png"
+  }, {
+    "name" : "תהליך ביקור ← לשוניות בביקור ← לשונית אחות",
+    "path" : [ "תהליך ביקור", "לשוניות בביקור", "לשונית אחות" ],
+    "displayName" : "לשונית אחות",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    },
+    "heroScreenshot" : "screenshots/info_20260115_070959_432_30.png"
+  }, {
+    "name" : "תהליך ביקור ← לשוניות בביקור ← לשונית טיפול",
+    "path" : [ "תהליך ביקור", "לשוניות בביקור", "לשונית טיפול" ],
+    "displayName" : "לשונית טיפול",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    },
+    "heroScreenshot" : "screenshots/info_20260115_071953_175_32.png"
+  }, {
+    "name" : "תהליך ביקור ← לשוניות בביקור ← לשונית מסמכים",
+    "path" : [ "תהליך ביקור", "לשוניות בביקור", "לשונית מסמכים" ],
+    "displayName" : "לשונית מסמכים",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← לשוניות בביקור ← לשונית סיום",
+    "path" : [ "תהליך ביקור", "לשוניות בביקור", "לשונית סיום" ],
+    "displayName" : "לשונית סיום",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    },
+    "heroScreenshot" : "screenshots/info_20260115_074250_720_35.png"
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← אבחנות - כרוניות",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "אבחנות - כרוניות" ],
+    "displayName" : "אבחנות - כרוניות",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    },
+    "heroScreenshot" : "screenshots/info_20260115_075648_053_42.png"
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← ביקורים - ביקורים קודמים",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "ביקורים - ביקורים קודמים" ],
+    "displayName" : "ביקורים - ביקורים קודמים",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    },
+    "heroScreenshot" : "screenshots/step_20260115_080346_043_43.png"
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← ביקורים - ביקורי אחות",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "ביקורים - ביקורי אחות" ],
+    "displayName" : "ביקורים - ביקורי אחות",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← הפניות - הפניית רופא",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "הפניות - הפניית רופא" ],
+    "displayName" : "הפניות - הפניית רופא",
+    "status" : "FAIL",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 0,
+      "fail" : 1,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 0.0
+    },
+    "heroScreenshot" : "screenshots/step_20260115_081859_988_45.png"
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← הפניות - רופא לאחות",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "הפניות - רופא לאחות" ],
+    "displayName" : "הפניות - רופא לאחות",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← מנהלי - אירועים ותאונות",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "מנהלי - אירועים ותאונות" ],
+    "displayName" : "מנהלי - אירועים ותאונות",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← מנהלי - פניות לקוח",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "מנהלי - פניות לקוח" ],
+    "displayName" : "מנהלי - פניות לקוח",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← מעבדות - תוצאה אחרונה",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "מעבדות - תוצאה אחרונה" ],
+    "displayName" : "מעבדות - תוצאה אחרונה",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← רפואי - מדידות",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "רפואי - מדידות" ],
+    "displayName" : "רפואי - מדידות",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← רפואי - טיפולי אחות",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "רפואי - טיפולי אחות" ],
+    "displayName" : "רפואי - טיפולי אחות",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← רפואי - טיפולי רופא",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "רפואי - טיפולי רופא" ],
+    "displayName" : "רפואי - טיפולי רופא",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← רקע - רגישויות",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "רקע - רגישויות" ],
+    "displayName" : "רקע - רגישויות",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← תרופות - קבועות",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "תרופות - קבועות" ],
+    "displayName" : "תרופות - קבועות",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← תרופות - שנרכשו",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "תרופות - שנרכשו" ],
+    "displayName" : "תרופות - שנרכשו",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← תרופות - אישורי תרופות",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "תרופות - אישורי תרופות" ],
+    "displayName" : "תרופות - אישורי תרופות",
+    "status" : "FAIL",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 0,
+      "fail" : 1,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 0.0
+    },
+    "heroScreenshot" : "screenshots/step_20260115_100957_241_46.png"
+  }, {
+    "name" : "תהליך ביקור ← תכולת תיק ← תרופות - מרשמים",
+    "path" : [ "תהליך ביקור", "תכולת תיק", "תרופות - מרשמים" ],
+    "displayName" : "תרופות - מרשמים",
+    "status" : "PASS",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 1,
+      "fail" : 0,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 1.0
+    }
+  }, {
+    "name" : "הריון",
+    "path" : [ "הריון" ],
+    "displayName" : "הריון",
+    "status" : "FAIL",
+    "knownBug" : false,
+    "counts" : {
+      "pass" : 0,
+      "fail" : 1,
+      "knownBug" : 0,
+      "skip" : 0,
+      "total" : 1,
+      "passRate" : 0.0
+    },
+    "heroScreenshot" : "screenshots/step_20260115_104037_562_47.png"
+  } ],
+  "totals" : {
+    "pass" : 25,
+    "fail" : 3,
+    "knownBug" : 0,
+    "skip" : 0,
+    "total" : 28,
+    "passRate" : 0.8928571428571429
+  },
+  "run" : {
+    "startTime" : "Jan 15, 2026, 6:03:53 AM",
+    "endTime" : "Jan 15, 2026, 6:06:35 AM"
+  }
+}

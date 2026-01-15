@@ -1,0 +1,1439 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<extentreports>
+    <configuration>
+        <!-- report theme -->
+        <!-- standard, dark -->
+        <theme>standard</theme>
+
+        <!-- document encoding -->
+        <!-- defaults to UTF-8 -->
+        <encoding>UTF-8</encoding>
+
+        <!-- protocol for script and stylesheets -->
+        <!-- defaults to https -->
+        <protocol>https</protocol>
+
+        <!-- title of the document -->
+        <documentTitle>Extent</documentTitle>
+
+        <!-- report name - displayed at top-nav -->
+        <reportName></reportName>
+
+        <!-- location of charts in the test view -->
+        <!-- top, bottom -->
+        <testViewChartLocation>top</testViewChartLocation>
+
+        <!-- custom javascript -->
+        <js><![CDATA[
+
+function accordion() {
+    var acc = document.getElementsByClassName("acco");
+    var i;
+    console.log(acc.length);
+
+    for (i = 0; i < acc.length; i++) {
+      acc[i].addEventListener("click", function() {
+        this.classList.toggle("active");
+        var panel = this.nextElementSibling;
+        if (panel.style.display === "block") {
+          panel.style.display = "none";
+        } else {
+          panel.style.display = "block";
+        }
+      });
+    }
+}
+
+$(function() {
+accordion();
+const targetNodes = document.querySelectorAll('.test-item');
+
+const config = {
+  attributes: true,
+  childList: true,
+  characterData: true
+};
+
+const observer = new MutationObserver(accordion);
+targetNodes.forEach(element => observer.observe(element, config));
+
+});
+
+      $(document).on('click', '.test-item', function(e) {
+        accordion();
+      });
+
+// Function to transform flat test list into hierarchical tree
+$(document).ready(function() {
+  $('body > div > div > div.vcontainer > div > div.container-fluid.p-4.view.dashboard-view > div:nth-child(5) > div.col-lg-6.col-md-12.category-container > div > div.card-body.pb-0.pt-0 > table > thead > tr > th:nth-child(5)').text('BUGS');
+  // First, add a loading animation to the test list container
+  const $testListWrapper = $('.test-list-wrapper');
+
+  // Add a loading spinner container
+  const $loadingSpinner = $('<div>', {
+    class: 'tree-loading-spinner',
+    html: '<div class="spinner-border text-primary" role="status"><span class="sr-only">Loading...</span></div>',
+    css: {
+      position: 'absolute',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      textAlign: 'center',
+      zIndex: 100,
+      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+      padding: '20px',
+      borderRadius: '5px',
+      boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)'
+    }
+  }).appendTo($testListWrapper);
+
+  // Hide the current content temporarily
+  $('.test-list-item').css('opacity', 0.3);
+
+  // Set a timeout to give the UI time to render the spinner before starting the transformation
+  setTimeout(function() {
+    // Begin the transformation
+    transformTestList();
+
+    // Remove the spinner when done and show the transformed tree
+    $loadingSpinner.fadeOut(300, function() {
+      $(this).remove();
+      $('.test-list-item').animate({opacity: 1}, 500);
+    });
+  }, 100);
+
+  // The main transformation function
+  function transformTestList() {
+    // Extract all unique tags from test items
+    const allTags = new Set();
+    $('div.test-view .test-list-item li.test-item').each(function() {
+      const tags = $(this).attr('tag') || '';
+      if (tags) {
+        tags.split(' ').forEach(tag => {
+          if (tag.trim() !== '') {
+            allTags.add(tag.trim());
+          }
+        });
+      }
+    });
+
+    // Create a filter container
+    const $filtersContainer = $('<div>', {
+      class: 'test-filters-container',
+      css: {
+        margin: '10px 0',
+        padding: '8px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '5px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        direction: 'rtl'
+      }
+    });
+
+    // Create status filter buttons
+    const $statusFilters = $('<div>', {
+      class: 'status-filters',
+      css: {
+        marginBottom: '10px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+      }
+    });
+
+    // Create status filter button group
+    const $statusButtonGroup = $('<div>', {
+      class: 'btn-group filter-btn-group',
+      role: 'group',
+      'aria-label': 'Status filters',
+      css: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '5px'
+      }
+    });
+
+    // Create All button
+    $('<button>', {
+      type: 'button',
+      class: 'btn btn-sm btn-outline-secondary status-filter active',
+      'data-status': 'all',
+      html: '<i class="fa fa-list-ul"></i>',
+      title: 'All',
+      css: {
+        backgroundColor: '#e9ecef',
+        minWidth: '36px',
+        height: '36px',
+        padding: '0 8px'
+      }
+    }).appendTo($statusButtonGroup);
+
+    // Create Pass button
+    $('<button>', {
+      type: 'button',
+      class: 'btn btn-sm btn-outline-success status-filter',
+      'data-status': 'pass',
+      html: '<i class="fa fa-check"></i>',
+      title: 'Pass',
+      css: {
+        backgroundColor: '#d4edda',
+        borderColor: '#28a745',
+        minWidth: '36px',
+        height: '36px',
+        padding: '0 8px'
+      }
+    }).appendTo($statusButtonGroup);
+
+    // Create Fail button
+    $('<button>', {
+      type: 'button',
+      class: 'btn btn-sm btn-outline-danger status-filter',
+      'data-status': 'fail',
+      html: '<i class="fa fa-times"></i>',
+      title: 'Fail',
+      css: {
+        backgroundColor: '#f8d7da',
+        borderColor: '#dc3545',
+        minWidth: '36px',
+        height: '36px',
+        padding: '0 8px'
+      }
+    }).appendTo($statusButtonGroup);
+
+    // Create "Known Bug" (warning) button
+    $('<button>', {
+      type: 'button',
+      class: 'btn btn-sm btn-outline-warning status-filter',
+      'data-status': 'warning',
+      html: '<i class="fa fa-exclamation-triangle"></i>',
+      title: 'Known Bug',
+      css: {
+        backgroundColor: '#fff3cd',
+        borderColor: '#ffc107',
+        minWidth: '36px',
+        height: '36px',
+        padding: '0 8px'
+      }
+    }).appendTo($statusButtonGroup);
+
+    $statusFilters.append($statusButtonGroup);
+
+    // Create tag filter dropdown
+    const $tagFilter = $('<div>', {
+      class: 'tag-filter',
+      css: {
+        marginBottom: '10px',
+        display: 'flex',
+        alignItems: 'center'
+      }
+    });
+
+    const $tagFilterWrapper = $('<div>', {
+      class: 'select-wrapper',
+      css: {
+        position: 'relative',
+        width: '100%',
+        maxWidth: '250px'
+      }
+    });
+
+    const $tagSelect = $('<select>', {
+      id: 'tag-filter',
+      class: 'form-control',
+      css: {
+        width: '100%',
+        padding: '8px 32px 8px 12px',
+        appearance: 'none',
+        border: '1px solid #ced4da',
+        borderRadius: '4px',
+        backgroundColor: 'white',
+        direction: 'rtl',
+        textAlign: 'right'
+      }
+    });
+
+    // Add icon after select
+    const $selectIcon = $('<div>', {
+      html: '<i class="fa fa-tag"></i>',
+      css: {
+        position: 'absolute',
+        left: '10px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        pointerEvents: 'none',
+        color: '#6c757d'
+      }
+    });
+
+    // Add an "All Tags" option
+    $('<option>', {
+      value: '',
+      text: 'כל התגיות'
+    }).appendTo($tagSelect);
+
+    // Add options for each tag (sorted alphabetically)
+    [...allTags].sort().forEach(tag => {
+      $('<option>', {
+        value: tag,
+        text: tag
+      }).appendTo($tagSelect);
+    });
+
+    $tagFilterWrapper.append($tagSelect).append($selectIcon);
+    $tagFilter.append($tagFilterWrapper);
+
+    // Create expand/collapse buttons
+    const $treeControls = $('<div>', {
+      class: 'tree-controls',
+      css: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '5px'
+      }
+    });
+
+    const $expandAllBtn = $('<button>', {
+      type: 'button',
+      class: 'btn btn-sm btn-outline-secondary tree-control',
+      id: 'expand-all',
+      html: '<i class="fa fa-plus-square"></i>',
+      title: 'Expand All',
+      css: {
+        width: '36px',
+        height: '36px',
+        padding: '0'
+      }
+    });
+
+    const $collapseAllBtn = $('<button>', {
+      type: 'button',
+      class: 'btn btn-sm btn-outline-secondary tree-control',
+      id: 'collapse-all',
+      html: '<i class="fa fa-minus-square"></i>',
+      title: 'Collapse All',
+      css: {
+        width: '36px',
+        height: '36px',
+        padding: '0'
+      }
+    });
+
+    $treeControls.append($expandAllBtn).append($collapseAllBtn);
+
+    // Add all filter components to the container in a flex layout
+    const $filterRow = $('<div>', {
+      css: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: '15px',
+        justifyContent: 'space-between'
+      }
+    }).append($statusFilters).append($tagFilter).append($treeControls);
+
+    $filtersContainer.append($filterRow);
+
+    // Add filter container to the page (before the test list)
+    $('.test-list-wrapper').before($filtersContainer);
+
+    // First, let's create a data structure to represent our hierarchy
+    const hierarchy = {};
+
+    // Store original test items (with their click handlers)
+    const originalItems = {};
+
+    // Process each test item from the existing list
+    $('div.test-view .test-list-item li.test-item').each(function() {
+      const $item = $(this);
+      const testId = $item.attr('test-id');
+      originalItems[testId] = $item;
+
+      // Get test status (pass/fail/warning)
+      const status = $item.attr('status') || '';
+
+      // Store tags for filtering
+      const tags = $item.attr('tag') || '';
+      $item.data('tags', tags);
+
+      const nameElement = $item.find('.name');
+      const fullPath = nameElement.text().trim();
+
+      // Split the path by the arrow character and reverse (since path is from specific to general)
+      const pathParts = fullPath.split('←').map(part => part.trim());
+
+      // Create the path in our hierarchy object
+      let currentLevel = hierarchy;
+      pathParts.forEach((part, index) => {
+        if (!currentLevel[part]) {
+          currentLevel[part] = {
+            _items: [],
+            _subfolders: {},
+            _passed: 0,
+            _failed: 0,
+            _warning: 0,
+            _total: 0,
+            _tags: new Set() // Store tags for folder filtering
+          };
+        }
+
+        if (index === pathParts.length - 1) {
+          // This is the test item itself
+          currentLevel[part]._items.push({
+            testId: testId,
+            name: part,
+            fullPath: fullPath,
+            status: status,
+            element: $item,
+            tags: tags
+          });
+
+          // Add item tags to folder's tag collection
+          if (tags) {
+            tags.split(' ').forEach(tag => {
+              if (tag.trim() !== '') {
+                currentLevel[part]._tags.add(tag.trim());
+              }
+            });
+          }
+
+          // Count test status for badge
+          currentLevel[part]._total++;
+          if (status === 'pass') {
+            currentLevel[part]._passed++;
+          } else if (status === 'fail') {
+            currentLevel[part]._failed++;
+          } else if (status === 'warning') {
+            currentLevel[part]._warning++;
+          }
+        } else {
+          // This is a folder
+          currentLevel = currentLevel[part]._subfolders;
+        }
+      });
+    });
+
+    // Propagate tags and statuses upward in the hierarchy
+    function propagateDataUpward(node) {
+      // Initialize status counts
+      let passed = 0;
+      let failed = 0;
+      let warning = 0;
+      let total = 0;
+
+      // Count direct items
+      node._items.forEach(item => {
+        total++;
+        if (item.status === 'pass') {
+          passed++;
+        } else if (item.status === 'fail') {
+          failed++;
+        } else if (item.status === 'warning') {
+          warning++;
+        }
+
+        // Add tags to the node's tag collection
+        if (item.tags) {
+          item.tags.split(' ').forEach(tag => {
+            if (tag.trim() !== '') {
+              node._tags.add(tag.trim());
+            }
+          });
+        }
+      });
+
+      // Process subfolders and collect their data
+      for (const key in node._subfolders) {
+        const subfolder = node._subfolders[key];
+        const subfolderData = propagateDataUpward(subfolder);
+
+        // Add subfolder counts to this folder's counts
+        passed += subfolderData.passed;
+        failed += subfolderData.failed;
+        warning += subfolderData.warning;
+        total += subfolderData.total;
+
+        // Add all subfolder tags to current folder
+        subfolder._tags.forEach(tag => {
+          node._tags.add(tag);
+        });
+      }
+
+      // Update the node's counts
+      node._passed = passed;
+      node._failed = failed;
+      node._warning = warning;
+      node._total = total;
+
+      return { passed, failed, warning, total };
+    }
+
+    // Propagate data in the hierarchy
+    for (const key in hierarchy) {
+      propagateDataUpward(hierarchy[key]);
+    }
+
+    // Now let's rebuild the list with the hierarchical structure
+    const $testList = $('.test-list-item');
+    const $newTestList = $('<ul class="test-list-item"></ul>');
+
+    // Function to recursively build the tree
+    function buildTree(node, $container, path = []) {
+      // Create folders first
+      Object.keys(node).forEach(key => {
+        if (key !== '_items' && key !== '_subfolders' && key !== '_passed' && key !== '_failed' &&
+            key !== '_warning' && key !== '_total' && key !== '_tags') {
+          const currentPath = [...path, key];
+          const folderNode = node[key];
+
+          const $folder = $('<li>', {
+            class: 'folder-container'
+          });
+
+          // Store folder's tags and status counts as data attributes for filtering
+          $folder.data({
+            'tags': Array.from(folderNode._tags).join(' '),
+            'passed': folderNode._passed,
+            'failed': folderNode._failed,
+            'warning': folderNode._warning,
+            'total': folderNode._total
+          });
+
+          const $folderHeader = $('<div>', {
+            class: 'folder-header',
+            'data-path': currentPath.join('/')
+          }).appendTo($folder);
+
+          $('<span>', {
+            class: 'folder-icon',
+            html: '<i class="fa fa-folder"></i>'
+          }).appendTo($folderHeader);
+
+          $('<span>', {
+            class: 'folder-name',
+            text: key
+          }).appendTo($folderHeader);
+
+          // Add status icons instead of text
+          const $statusIcons = $('<span>', {
+            class: 'folder-status-icons',
+            css: {
+              marginRight: '5px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '3px'
+            }
+          });
+
+          // Add status icons based on counts
+          if (folderNode._passed > 0) {
+            $('<span>', {
+              class: 'status-icon pass',
+              html: `<i class="fa fa-check"></i> ${folderNode._passed}`,
+              title: `${folderNode._passed} passed tests`,
+              css: {
+                color: '#28a745',
+                fontSize: '0.85em',
+                padding: '1px 3px',
+                borderRadius: '3px',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)'
+              }
+            }).appendTo($statusIcons);
+          }
+
+          if (folderNode._failed > 0) {
+            $('<span>', {
+              class: 'status-icon fail',
+              html: `<i class="fa fa-times"></i> ${folderNode._failed}`,
+              title: `${folderNode._failed} failed tests`,
+              css: {
+                color: '#dc3545',
+                fontSize: '0.85em',
+                padding: '1px 3px',
+                borderRadius: '3px',
+                backgroundColor: 'rgba(220, 53, 69, 0.1)'
+              }
+            }).appendTo($statusIcons);
+          }
+
+          if (folderNode._warning > 0) {
+            $('<span>', {
+              class: 'status-icon warning',
+              html: `<i class="fa fa-exclamation-triangle"></i> ${folderNode._warning}`,
+              title: `${folderNode._warning} tests with known bugs`,
+              css: {
+                color: '#ffc107',
+                fontSize: '0.85em',
+                padding: '1px 3px',
+                borderRadius: '3px',
+                backgroundColor: 'rgba(255, 193, 7, 0.1)'
+              }
+            }).appendTo($statusIcons);
+          }
+
+          $folderHeader.append($statusIcons);
+
+          // Create subfolder container
+          const $subContainer = $('<ul>', {
+            class: 'subfolder-container',
+            style: 'display: none;'
+          }).appendTo($folder);
+
+          // Recursively build the tree for subfolders
+          buildTree(node[key]._subfolders, $subContainer, currentPath);
+
+          // Add test items for this folder
+          node[key]._items.forEach(itemInfo => {
+            // Get the original item with its event handlers
+            const $originalItem = itemInfo.element;
+
+            // Process the item before appending
+            // 1. Extract the status badge
+            const $textSm = $originalItem.find('p.text-sm');
+            const $statusBadge = $textSm.find('.badge.log').clone();
+
+            // 2. Update test-detail to be flex container with badge first
+            const $testDetail = $originalItem.find('.test-detail');
+            $testDetail.css({
+              'display': 'flex',
+              'flex-direction': 'row',
+              'align-items': 'center'
+            });
+
+            // 3. Clear p.text-sm (we'll move the badge)
+            $textSm.empty();
+
+            // 4. Update the name display
+            const $nameElement = $originalItem.find('.name');
+            $nameElement.text(itemInfo.name);
+            $nameElement.attr('data-full-path', itemInfo.fullPath);
+
+            // 5. Reorder - first badge, then name
+            // Remove badge and name from their current positions
+            $statusBadge.detach();
+            $nameElement.detach();
+
+            // Insert the badge first, then the name
+            $testDetail.empty();
+            const $badgeContainer = $('<span>', {
+              class: 'status-badge-container',
+              css: { 'margin-right': '5px' }
+            }).append($statusBadge);
+
+            $testDetail.append($badgeContainer);
+            $testDetail.append($nameElement);
+
+            // Append to container
+            $originalItem.appendTo($subContainer);
+          });
+
+          $container.append($folder);
+        }
+      });
+    }
+
+    // Start building the tree
+    buildTree(hierarchy, $newTestList);
+
+    // Replace the original list with our new hierarchical list
+    $testList.replaceWith($newTestList);
+
+    // Add some CSS for the tree structure
+    $('<style>')
+      .text(`
+        /* RTL support */
+        .test-filters-container, .test-list-item {
+          direction: rtl;
+          text-align: right;
+        }
+
+        .folder-container {
+          margin-right: 0;
+          margin-left: auto;
+          list-style-type: none;
+          position: relative;
+        }
+
+        .subfolder-container {
+          margin-right: 3px !important;
+          margin-left: auto !important;
+          padding-right: 2px !important;
+          padding-left: 8px !important;
+          border-right: 1px dashed #ccc;
+          border-left: none;
+        }
+
+        .folder-header {
+          cursor: pointer;
+          padding: 5px 8px;
+          background-color: #f8f9fa;
+          border-radius: 4px;
+          margin: 2px 0;
+          display: flex;
+          align-items: center;
+          width: 100%;
+        }
+
+        .folder-header:hover {
+          background-color: #e9ecef;
+        }
+
+        .folder-icon {
+          margin-left: 8px;
+          margin-right: 0;
+          width: 14px;
+          display: inline-block;
+          text-align: center;
+        }
+
+        .folder-icon i.fa-folder, .folder-icon i.fa-folder-open {
+          color: #FDB94E;
+        }
+
+        .folder-name {
+          flex: 1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .folder-status-icons {
+          margin-right: auto;
+          margin-left: 5px;
+        }
+
+        .folder-container.expanded > .folder-header {
+          background-color: #e9ecef;
+        }
+
+        /* Adjust the test items to only show badge and last part of name */
+        .test-list-item .test-item .name {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        /* Reduce overall item padding */
+        .test-list-item .test-item {
+          padding: 3px 5px !important;
+        }
+
+        /* Hide text-sm content since we moved the badge */
+        .test-list-item .test-item p.text-sm {
+          display: none;
+        }
+
+        /* Make test-detail flex container */
+        .test-list-item .test-item .test-detail {
+          display: flex !important;
+          flex-direction: row !important;
+          align-items: center !important;
+        }
+
+        /* Style for badge container */
+        .status-badge-container {
+          margin-left: 5px;
+          margin-right: 0;
+          display: inline-flex;
+        }
+
+        /* Loading spinner animation */
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        .spinner-border {
+          display: inline-block;
+          width: 2rem;
+          height: 2rem;
+          vertical-align: text-bottom;
+          border: 0.25em solid currentColor;
+          border-right-color: transparent;
+          border-radius: 50%;
+          animation: spin .75s linear infinite;
+        }
+
+        .text-primary {
+          color: #007bff !important;
+        }
+
+        .sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+
+        /* Hidden elements for filtering */
+        .folder-container.hidden-by-filter, .test-item.hidden-by-filter {
+          display: none !important;
+        }
+
+        /* Filter styling */
+        .test-filters-container {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .status-filter {
+          margin: 0 2px;
+          width: 36px;
+          height: 36px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 4px;
+          padding: 0;
+          font-size: 14px;
+        }
+
+        .status-filter.active {
+          box-shadow: 0 0 0 2px rgba(0,123,255,.5);
+          transform: scale(1.05);
+        }
+
+        .tree-control {
+          border-radius: 4px;
+          font-size: 14px;
+        }
+
+        /* Button styles */
+        .btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 400;
+          text-align: center;
+          white-space: nowrap;
+          vertical-align: middle;
+          user-select: none;
+          border: 1px solid transparent;
+          transition: all 0.15s ease-in-out;
+        }
+
+        .btn-sm {
+          padding: 0.25rem 0.5rem;
+          font-size: 0.875rem;
+          line-height: 1.5;
+          border-radius: 0.2rem;
+        }
+
+        .btn-group {
+          position: relative;
+          display: inline-flex;
+          vertical-align: middle;
+        }
+
+        /* Tooltip styles */
+        [title] {
+          position: relative;
+        }
+
+        /* Select styling */
+        .select-wrapper {
+          position: relative;
+        }
+
+        .select-wrapper:after {
+          content: '';
+          position: absolute;
+          right: 10px;
+          top: 50%;
+          transform: translateY(-50%);
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+          border-top: 5px solid #6c757d;
+          pointer-events: none;
+        }
+      `)
+      .appendTo('head');
+
+      // More precisely targeted event handler for folder clicks
+      $(document).on('click', '.folder-header', function(e) {
+        // Only handle clicks directly on the folder header or its immediate children
+        // (excluding .acco elements and their children)
+        if ($(e.target).closest('.acco, .panel').length ||
+            $(e.target).closest('.test-item').length) {
+          return true; // Let the original handler process it
+        }
+
+        // This is a direct folder click, stop propagation and handle it
+        e.stopPropagation();
+        e.preventDefault();
+
+        const $folder = $(this).parent();
+        $folder.toggleClass('expanded');
+        $(this).find('.folder-icon i').toggleClass('fa-folder fa-folder-open');
+        $folder.children('.subfolder-container').slideToggle();
+      });
+
+
+    // Function to apply filters based on current selections
+    function applyFilters() {
+      const selectedTag = $('#tag-filter').val();
+      const selectedStatus = $('.status-filter.active').data('status');
+
+      // Hide all items first
+      $('.folder-container, .test-item').addClass('hidden-by-filter');
+
+      // Filter test items based on selected criteria
+      $('.test-item').each(function() {
+        const $item = $(this);
+        const itemTags = $item.attr('tag') || '';
+        const itemStatus = $item.attr('status') || '';
+
+        // Check if item matches both tag and status filters
+        const matchesTag = !selectedTag || itemTags.includes(selectedTag);
+        const matchesStatus = selectedStatus === 'all' || itemStatus === selectedStatus;
+
+        if (matchesTag && matchesStatus) {
+          $item.removeClass('hidden-by-filter');
+          // Make sure parent folders are visible
+          $item.parents('.folder-container').removeClass('hidden-by-filter');
+        }
+      });
+
+      // Show folders that have matching items or subfolders
+      $('.folder-container').each(function() {
+        const $folder = $(this);
+
+        // If this folder contains any visible items or subfolders, show it
+        if ($folder.find('.test-item:not(.hidden-by-filter), .folder-container:not(.hidden-by-filter)').length > 0) {
+          $folder.removeClass('hidden-by-filter');
+          // Make sure parent folders are visible too
+          $folder.parents('.folder-container').removeClass('hidden-by-filter');
+        }
+      });
+
+      // Update empty folders visibility based on status filter
+      if (selectedStatus !== 'all') {
+        $('.folder-container:not(.hidden-by-filter)').each(function() {
+          const $folder = $(this);
+          const hasMatchingStatus =
+            (selectedStatus === 'pass' && $folder.data('passed') > 0) ||
+            (selectedStatus === 'fail' && $folder.data('failed') > 0) ||
+            (selectedStatus === 'warning' && $folder.data('warning') > 0);
+
+          if (!hasMatchingStatus && $folder.find('.test-item:not(.hidden-by-filter)').length === 0) {
+            $folder.addClass('hidden-by-filter');
+          }
+        });
+      }
+
+      // Expand folders that contain visible items
+      $('.folder-container:not(.hidden-by-filter)').addClass('expanded')
+        .children('.folder-header').find('.folder-icon i').removeClass('fa-folder').addClass('fa-folder-open')
+        .end().end().children('.subfolder-container').show();
+    }
+
+    // Handle tag filtering
+    $('#tag-filter').on('change', function() {
+      applyFilters();
+    });
+
+    // Handle status filtering
+    $('.status-filter').on('click', function() {
+      $('.status-filter').removeClass('active');
+      $(this).addClass('active');
+      applyFilters();
+    });
+
+    // Handle expand all button
+    $('#expand-all').on('click', function() {
+      $('.folder-container:not(.hidden-by-filter)').addClass('expanded')
+        .children('.folder-header').find('.folder-icon i').removeClass('fa-folder').addClass('fa-folder-open')
+        .end().end().children('.subfolder-container').slideDown();
+    });
+
+    // Handle collapse all button
+    $('#collapse-all').on('click', function() {
+      $('.folder-container:not(.hidden-by-filter)').removeClass('expanded')
+        .children('.folder-header').find('.folder-icon i').removeClass('fa-folder-open').addClass('fa-folder')
+        .end().end().children('.subfolder-container').slideUp();
+    });
+  }
+});
+
+            $('.nav-right').after('<div class="nav-right leumit-logo"></div>');
+            $('.status-avatar').remove();
+
+            $('.step > span').each(function(){
+                var $p = $(this);
+                $p.html($p.html().replace(/^(Given)/, '<p class="badge gherkin">בהינתן:</p>'));
+                $p.html($p.html().replace(/^(When)/, '<p class="badge gherkin">כאשר:</p>'));
+                $p.html($p.html().replace(/^(And)/, '<p class="badge gherkin">וגם:</p>'));
+                $p.html($p.html().replace(/^(Then)/, '<p class="badge gherkin">אז:</p>'));
+                $p.html($p.html().replace(/^(But)/, '<p class="badge gherkin">אבל:</p>'));
+                $p.html($p.html().replace(/^\*/, '<p class="badge gherkin">צעד:</p>'));
+
+            });
+
+            $('.step > span').each(function(){      var $p = $(this); $p.siblings().wrapAll('<div class="panel"></div>'); });
+            $('.step > span').each(function(){      var $p = $(this); $p.replaceWith($('<h5 class="acco">' + $p.html() + '</h5>')); });
+
+            $('.pass-bg > .acco').each(function(){
+                var $p = $(this);
+
+                $p.html('<i class="fa-solid fa-circle-check" style="color: #006400;"></i>' + $p.html());
+
+            });
+            $('.fail-bg > .acco').each(function(){      var $p = $(this); $p.html('<i class="fa-solid fa-circle-xmark" style="color: #DC143C;"></i>' + $p.html()); });
+            $('.skip-bg > .acco').each(function(){      var $p = $(this); $p.html('<i class="fa-solid fa-circle-exclamation" style="color: #FF8C00;"></i>' + $p.html()); });
+            $('h5:contains(Screenshot)').each(function(){
+                 var $p = $(this);
+                 $p.contents().last()[0].textContent='צילום מסך';
+            });
+            $('div.panel > div').each(function(){
+                 var $p = $(this);
+                 $p.addClass("flex");
+            });
+            $('span:contains(base64)').each(function(){
+                 var $p = $(this);
+                 $p.replaceWith('<span style="margin-right:20px;margin-top:10px;" class="badge badge-default"><i class="fa-regular fa-image" style="margin-left:4px;"></i>צילום מסך</span>');
+            });
+
+
+
+    // Find all step divs with title "AFTER_STEP"
+    $('.step[title="AFTER_STEP"]').each(function() {
+        var afterStepDiv = $(this);
+
+        // Find the preceding step div (the one immediately before this AFTER_STEP)
+        var precedingStep = afterStepDiv.prev('.step');
+
+        // Check if a preceding step exists
+        if (precedingStep.length > 0) {
+            // Find the div.panel in the AFTER_STEP
+            var afterStepPanel = afterStepDiv.find('div.panel');
+
+            // Find the div.panel in the preceding step
+            var precedingStepPanel = precedingStep.find('div.panel');
+
+            // If both panels exist, merge the content
+            if (afterStepPanel.length > 0 && precedingStepPanel.length > 0) {
+                // Get the content from the AFTER_STEP panel
+                var panelContent = afterStepPanel.html();
+
+                // Append the content to the preceding step's panel
+                precedingStepPanel.append(panelContent);
+
+                // Remove the original AFTER_STEP div
+                afterStepDiv.remove();
+            }
+            // If preceding step has no panel but AFTER_STEP does, move the entire panel
+            else if (afterStepPanel.length > 0 && precedingStepPanel.length === 0) {
+                // Move the entire panel from AFTER_STEP to preceding step
+                afterStepPanel.detach().appendTo(precedingStep);
+
+                // Remove the now-empty AFTER_STEP div
+                afterStepDiv.remove();
+            }
+        }
+    });
+
+            //Times
+    $('<style>')
+        .text(`
+            .timestamp.highlighted {
+                color: #ff6b6b;
+                font-weight: bold;
+            }
+            .total-time {
+                color: #666;
+                margin-right: auto;
+                padding-right: 15px;
+                direction: ltr;
+                unicode-bidi: embed;
+            }
+            .total-time.highlighted {
+                color: #ff6b6b;
+                font-weight: bold;
+            }
+            .header-flex {
+                display: flex;
+                align-items: center;
+                width: 100%;
+                direction: rtl;
+            }
+            .card-total-time {
+                color: #666;
+                margin-right: 15px;
+                direction: ltr;
+                unicode-bidi: embed;
+                font-weight: bold;
+            }
+            .card-total-time.highlighted {
+                color: #ff6b6b;
+            }
+            .card-header-flex {
+                display: flex;
+                align-items: center;
+                width: 100%;
+                direction: rtl;
+            }
+        `)
+        .appendTo('head');
+
+    // Process each card
+    $('.card').each(function() {
+        const $currentCard = $(this);
+        let cardTotalSeconds = 0;
+        let cardTime = $(this).find('p.localtime').first().text();
+
+        // First, process all steps within this specific card
+        $currentCard.find('.step').each(function() {
+            let stepTotalSeconds = 0;
+
+            // Process each timestamp within the step
+            $(this).find('p.timestamp').each(function() {
+                const seconds = timeToSeconds($(this).text());
+                stepTotalSeconds += seconds;
+
+                // Highlight individual times over 20 seconds
+                if (seconds > 20) {
+                    $(this).addClass('highlighted');
+                }
+            });
+
+            // Add step total time if not already present
+            if (!$(this).find('.total-time').length) {
+                const $totalTime = $('<div>', {
+                    class: 'total-time' + (stepTotalSeconds > 20 ? ' highlighted' : ''),
+                    text: secondsToTime(stepTotalSeconds)
+                });
+
+                const $h5 = $(this).find('h5');
+                // Check if header-flex already exists
+                let $headerFlex = $h5.find('.header-flex');
+                if (!$headerFlex.length) {
+                    $headerFlex = $('<div>').addClass('header-flex');
+                    $headerFlex.append($h5.contents());
+                    $h5.empty().append($headerFlex);
+                }
+                // Add total time if it doesn't exist
+                if (!$headerFlex.find('.total-time').length) {
+                    $headerFlex.append($totalTime);
+                }
+            }
+
+            cardTotalSeconds += stepTotalSeconds;
+        });
+
+        // Add card total time to this specific card's header
+        const $cardTitle = $currentCard.find('.card-title').first();
+
+        // Remove existing card total if present
+        $cardTitle.find('.card-total-time').remove();
+
+        // Get or create card-header-flex
+        let $headerFlex = $cardTitle.find('.card-header-flex');
+        if (!$headerFlex.length) {
+            $headerFlex = $('<div>').addClass('card-header-flex');
+            $headerFlex.append($cardTitle.contents());
+            $cardTitle.empty().append($headerFlex);
+        }
+
+        // Add card total time
+        const $cardTotal = $('<div>', {
+            class: 'card-total-time' + (cardTotalSeconds > 20 ? ' highlighted' : ''),
+            text: `${cardTime} | ${secondsToTime(cardTotalSeconds)}`
+        });
+
+        $headerFlex.append($cardTotal);
+    });
+
+            // Convert time string (MM:SS) to seconds
+function timeToSeconds(timeStr) {
+    const [minutes, seconds] = timeStr.split(':').map(Number);
+    return minutes * 60 + seconds;
+}
+
+// Convert seconds to time string (MM:SS)
+function secondsToTime(totalSeconds) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// Find the div with class 'step' containing the Tamar_Test_Id text
+$('.step:contains("Tamar_Test_Id")').each(function() {
+  // Extract the test ID and owner from the step content
+  var stepElement = $(this);
+  var stepText = stepElement.text();
+
+  // Extract test ID (the number after "Tamar_Test_Id")
+  var testIdMatch = stepText.match(/Tamar_Test_Id\s+(\d+)/);
+  var testId = testIdMatch ? testIdMatch[1] : null;
+
+  // Extract test owner (the text inside quotes after "Test_Owner")
+  var ownerMatch = stepText.match(/Test_Owner\s+"([^"]+)"/);
+  var testOwner = ownerMatch ? ownerMatch[1] : null;
+
+  if (testId && testOwner) {
+    // Find the parent card that contains this step
+    var parentCard = stepElement.closest('.card');
+
+    // Find all node elements in this card (both main node and outline-child nodes)
+    var nodeElements = parentCard.find('.node');
+
+    nodeElements.each(function() {
+      var nodeEl = $(this);
+
+      // Extract the actual title text by looking at the node
+      var titleElement = nodeEl.clone();
+
+      // Remove the badge element explicitly (don't just use text extraction)
+      var badgeElement = titleElement.find('.badge').remove();
+
+      // Get the text content after removing badges and clean it
+      var titleText = titleElement.text();
+
+      // Remove any "Pass" or "Fail" or "Skip" words that might be in the text
+      titleText = titleText.replace(/Pass\s+/g, '').replace(/Fail\s+/g, '').replace(/Skip\s+/g, '');
+
+      // Find all existing test IDs in the text (5-digit numbers)
+      var idMatches = titleText.match(/\d{5}/g) || [];
+
+      // Add the current test ID if it's not already in the list
+      if (testId && idMatches.indexOf(testId) === -1) {
+        idMatches.push(testId);
+      }
+
+      // Remove all ID and owner combinations from the title text to get a clean base title
+      idMatches.forEach(function(id) {
+        var pattern = new RegExp(id + '\\s*' + testOwner, 'g');
+        titleText = titleText.replace(pattern, '');
+      });
+
+      // Clean the title further by removing just bare IDs that might remain
+      idMatches.forEach(function(id) {
+        var idPattern = new RegExp('\\b' + id + '\\b', 'g');
+        titleText = titleText.replace(idPattern, '');
+      });
+
+      // Clean the title of owner names without IDs
+      titleText = titleText.replace(new RegExp('\\b' + testOwner + '\\b', 'g'), '');
+
+      // Remove HTML entities and extra spaces
+      titleText = titleText.replace(/&nbsp;/g, ' ')
+                           .replace(/\s{2,}/g, ' ')
+                           .trim();
+
+      // Remove any icons that might be in text form
+      titleText = titleText.replace(/fa-[a-z-]+/g, '');
+
+      // Preserve the existing badge from the original element
+      var originalBadge = nodeEl.find('.badge').clone();
+      var badgeHtml = originalBadge.length > 0 ? originalBadge[0].outerHTML + ' ' : '';
+
+      // Create the formatted ID and owner string with all the IDs
+      var idsHtml = '';
+      var uniqueIds = [...new Set(idMatches)]; // Remove duplicates
+
+      uniqueIds.forEach(function(id, index) {
+        if (index > 0) {
+          idsHtml += ' ';
+        }
+        idsHtml += '&nbsp;&nbsp;&nbsp;<i class="fa-solid fa-arrow-up-right-from-square"></i>&nbsp;' + id;
+      });
+
+      // Add the owner once at the end
+      idsHtml += '&nbsp;&nbsp;&nbsp;<i class="fa-regular fa-user"></i>&nbsp;' + testOwner;
+
+      // Set the new HTML for the node element with clean title and proper formatting
+      nodeEl.html(badgeHtml + titleText + idsHtml);
+    });
+
+    // Remove the step element
+    stepElement.remove();
+  }
+
+});
+
+            ]]></js>
+
+        <!-- custom styles -->
+        <css>
+            .flex {
+            display: flex;
+            }
+            body {
+            text-align: right;
+            direction: rtl;
+            }
+            .header {
+            background-color: #0060af;
+            }
+            .badge {
+            margin-left: 5px;
+            }
+            .myDivs {
+            display: none;
+            }
+            div.leumit-logo {
+            height: 48px;
+            width: 178px;
+            background-image: url('https://vqamsclient.leumit.co.il/assets/images/logo.png');
+            background-position:right;
+            }
+
+            .fa { display:inline; }
+            .step.pass-bg, .step.fail-bg, .step.skip-bg {
+            cursor: pointer;
+            background-color: white;
+            }
+            .panel {
+            border: 1px solid rgba(0,0,0,.125);
+            background-color: white;
+            display: none;
+            overflow: hidden;
+            }
+
+            .step > div {
+            padding-top: 10px;
+            padding-right: 30px;
+            padding-bottom: 10px;
+            padding-left: 30px;
+            }
+            .test-wrapper .test-list {
+            width: 25%;
+            }
+            .test-wrapper .test-content {
+            width: 75%;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            font-size: 100%;
+            }
+            .gherkin {
+            font-size: 90%;
+            }
+            .table, .tbl {
+            display: block;
+            table-layout:fixed;
+            overflow-x: auto;
+            white-space: nowrap;
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0px;
+            }
+            .table td, .tbl td, .table th, .tbl th {
+            border: 1px;
+            padding: 8px;
+            }
+
+            .CellWithComment {
+            position: relative;
+            background-color: #ffcc66;
+            }
+
+            .CellComment {
+            display: none;
+            position: absolute;
+            z-index: 100;
+            border: 1px;
+            background-color: white;
+            border-style: solid;
+            border-width: 1px;
+            border-color: red;
+            padding: 3px;
+            color: red;
+            left: 0px;
+            top: -20px;
+            }
+
+            .CellWithComment:hover span.CellComment {
+            display: block;
+            }
+            .right-table-unmatched td {
+            background-color: #b3ffff;
+            }
+            .left-table-unmatched td {
+            background-color: #facb5f;
+            }
+            .callout {
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #eee;
+            border-left-width: 5px;
+            border-radius: 3px;
+            }
+            .callout-default {
+            border-left-color: #777;
+            }
+            .callout-primary {
+            border-left-color: #428bca;
+            }
+            .callout-success {
+            border-left-color: #5cb85c;
+            }
+            .callout-danger {
+            border-left-color: #d9534f;
+            }
+            .callout-warning {
+            border-left-color: #f0ad4e;
+            }
+            .callout-info {
+            border-left-color: #5bc0de;
+            }
+            .callout-bdc {
+            border-left-color: #29527a;
+            }
+            .table-sm{
+            direction: ltr;
+            text-align: left;
+            }
+            .dashboard-view{
+            direction: ltr;
+            text-align: left;
+            }
+            .side-nav{
+            width: fit-content;
+            position: relative;
+            float: left;
+            }
+
+            table.markup-table {
+            border: 0px;
+            padding: 2px;
+            }
+            table.markup-table td {
+            border: 0px;
+            padding: 2px;
+            padding-left: 12px;
+            padding-right: 12px;
+            }
+
+            .inner-accordion {
+            background-color: #eee;
+            color: #444;
+            cursor: pointer;
+            padding: 18px;
+            width: 100%;
+            text-align: left;
+            border: none;
+            outline: none;
+            transition: 0.4s;
+            }
+
+            /* Add a background color to the button if it is clicked on (add the .active class with JS), and when you
+            move the mouse over it (hover) */
+            .inner-active, .inner-accordion:hover {
+            background-color: #ccc;
+            }
+
+            /* Style the accordion panel. Note: hidden by default */
+            .panel {
+            padding: 0 18px;
+            background-color: white;
+            display: none;
+            overflow: hidden;
+            }
+        </css>
+    </configuration>
+</extentreports>

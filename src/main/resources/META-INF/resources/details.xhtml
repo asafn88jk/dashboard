@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="jakarta.faces.html"
+      xmlns:f="jakarta.faces.core"
+      xmlns:ui="jakarta.faces.facelets"
+      xmlns:p="http://primefaces.org/ui">
+
+<h:head>
+    <title>Run Details</title>
+
+    <f:metadata>
+        <f:viewParam name="filter" value="#{runDetailsView.filter}" />
+        <f:viewParam name="item" value="#{runDetailsView.item}" />
+        <f:viewParam name="run" value="#{runDetailsView.run}" />
+        <f:event type="preRenderView" listener="#{runDetailsView.preRender}" />
+    </f:metadata>
+    <link href="https://cdn.jsdelivr.net/gh/extent-framework/extent-github-cdn@d6562a79075e061305ccfdb82f01e5e195e2d307/spark/css/spark-style.css" rel="stylesheet"></link>
+
+    <!-- If you serve FontAwesome locally/webjars, keep your include here.
+         Otherwise, remove or keep your existing include setup. -->
+
+    <style>
+        /* -------- Extent-like typography -------- */
+        html, body, .ui-widget {
+            font-family: "Open Sans","Source Sans 3","Segoe UI",Roboto,Arial,sans-serif !important;
+        }
+
+        body {
+            margin: 0;
+            background: #fafafa;
+        }
+
+        .page {
+            padding: 14px;
+            direction: rtl;
+        }
+
+        .topCard {
+            background: #fff;
+            border: 1px solid #eaeaea;
+            border-radius: 18px;
+            padding: 14px 16px;
+        }
+
+        .topRow {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .title {
+            font-weight: 900;
+            font-size: 18px;
+            line-height: 1.2;
+        }
+
+        .meta {
+            color: #666;
+            font-size: 12px;
+            margin-top: 6px;
+        }
+
+        .errorBox {
+            margin: 10px 0;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: #fff2f2;
+            border: 1px solid #ffd1d1;
+            color: #a40000;
+            font-weight: 700;
+        }
+
+        /* -------- Main layout: content left, tree right -------- */
+        .grid {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            gap: 12px;
+            direction: ltr; /* layout direction */
+            align-items: stretch;
+        }
+
+        .pane {
+            background: #fff;
+            border: 1px solid #eaeaea;
+            border-radius: 18px;
+            padding: 12px;
+            min-height: calc(100vh - 140px);
+            direction: rtl; /* text direction */
+        }
+
+        .paneHeader {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .paneTitle {
+            font-weight: 900;
+            font-size: 16px;
+        }
+
+        /* -------- Pills / statuses -------- */
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 800;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+
+        .st-pass { background: #eafff0; border-color: #9ee6b4; color: #0b6b2f; }
+        .st-fail { background: #fff0f0; border-color: #ffb3b3; color: #a40000; }
+        .st-skip { background: #fff6e8; border-color: #ffd29a; color: #9a5200; }
+        .st-knownbug { background: #fff0fb; border-color: #f3b3ff; color: #7a007f; }
+        .st-info { background: #eef6ff; border-color: #b7d8ff; color: #0b4c9c; }
+        .st-unknown { background: #f3f3f3; border-color: #d5d5d5; color: #444; }
+
+        /* -------- Tree styling -------- */
+        .treeWrap { direction: rtl; }
+
+        /* Keep PF RTL indentation stable */
+        .featTree.ui-tree {
+            width: 100%;
+            direction: rtl;
+            text-align: right;
+            border: 0;
+        }
+
+        .treeRow {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .treeLabel {
+            font-weight: 800;
+        }
+
+        .treeGroup {
+            font-weight: 900;
+            color: #333;
+        }
+
+        /* -------- Panels as accordions, no toggle icon -------- */
+        .ui-panel .ui-panel-titlebar-icon.ui-panel-titlebar-toggler {
+            display: none !important; /* remove +/-/triangle */
+        }
+        .ui-panel .ui-panel-titlebar {
+            cursor: pointer;
+            border-radius: 14px;
+        }
+
+        .scenarioPanel { margin-bottom: 10px; }
+        .stepPanel { margin: 8px 0; }
+
+        .hdrLine {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .hdrText {
+            font-weight: 900;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        .subMeta {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .tags {
+            display: inline-flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+
+        .tag {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #f4f4f4;
+            border: 1px solid #e5e5e5;
+            color: #333;
+        }
+
+        /* -------- Extent log HTML normalization -------- */
+        /* Hide Extent timestamp/localtime paragraphs embedded in detailsHtml */
+        .contentPane p.timestamp,
+        .contentPane p.localtime,
+        .contentPane .timestamp,
+        .contentPane .localtime {
+            display: none !important;
+        }
+
+        /* Make Extent step tables “invisible” (no borders, no boxy look) */
+        .contentPane table.markup-table {
+            border: 0 !important;
+            border-collapse: collapse !important;
+            width: auto;
+        }
+        .contentPane table.markup-table td,
+        .contentPane table.markup-table th {
+            border: 0 !important;
+            padding: 2px 6px 2px 0 !important;
+            vertical-align: top;
+        }
+
+        /* Each log row wrapper: no border, minimal spacing */
+        .logRow {
+            padding: 4px 0;
+            margin: 0;
+        }
+
+        .mediaImg {
+            margin-top: 8px;
+            max-width: 100%;
+            border-radius: 12px;
+            border: 1px solid #eee;
+        }
+
+        .emptyHint {
+            color: #666;
+            font-size: 13px;
+            padding: 10px 0;
+        }
+    </style>
+</h:head>
+
+<h:body>
+    <div class="page">
+
+        <div class="topCard" id="titleBar">
+            <div class="topRow">
+                <div>
+                    <div class="title">
+                        #{runDetailsView.filter} • #{runDetailsView.item} • #{runDetailsView.run}
+                    </div>
+                    <div class="meta">
+                        משך: #{runDetailsView.runDurationText()}
+                        <span style="margin:0 8px;">|</span>
+                        DIR: #{runDetailsView.runDir}
+                    </div>
+                </div>
+
+                <div class="meta" style="text-align:left;">
+                    <ui:fragment rendered="#{not empty runDetailsView.summary}">
+                        סה״כ: #{runDetailsView.summary.totals.total}
+                        | עבר: #{runDetailsView.summary.totals.pass}
+                        | נכשל: #{runDetailsView.summary.totals.fail}
+                        | באג ידוע: #{runDetailsView.summary.totals.knownBug}
+                        | דולג: #{runDetailsView.summary.totals.skip}
+                    </ui:fragment>
+                </div>
+            </div>
+
+            <ui:fragment rendered="#{not empty runDetailsView.error}">
+                <div class="errorBox">
+                    ERROR: #{runDetailsView.error}
+                </div>
+            </ui:fragment>
+        </div>
+
+        <h:form id="form" prependId="false">
+
+            <div class="grid">
+
+                <!-- LEFT: content pane -->
+                <div class="pane contentPane" id="contentPane">
+
+                    <ui:fragment rendered="#{empty runDetailsView.selectedFeature}">
+                        <div class="paneHeader">
+                            <div class="paneTitle">פירוט</div>
+                            <span class="pill st-unknown">בחר Feature בעץ</span>
+                        </div>
+                        <div class="emptyHint">בחר Feature בעץ (מימין) כדי לראות תרחישים/צעדים/לוגים.</div>
+                    </ui:fragment>
+
+                    <ui:fragment rendered="#{not empty runDetailsView.selectedFeature}">
+
+                        <div class="paneHeader">
+                            <div>
+                                <div class="paneTitle">#{runDetailsView.selectedFeature.title}</div>
+                                <div class="subMeta">
+                                    Scenarios: #{runDetailsView.selectedFeature.scenarios.size()}
+                                    <span style="margin:0 8px;">|</span>
+                                    משך: #{runDetailsView.selectedFeature.durationText}
+                                </div>
+                            </div>
+
+                            <span class="pill #{runDetailsView.statusCss(runDetailsView.selectedFeature.status)}">
+                            <i class="fa-solid fa-circle-check"></i>
+                            #{runDetailsView.statusHebrew(runDetailsView.selectedFeature.status)}
+                        </span>
+                        </div>
+
+                        <!-- Scenarios accordion -->
+                        <ui:repeat value="#{runDetailsView.selectedFeature.scenarios}" var="sc">
+
+                            <p:panel toggleable="true" toggleableHeader="true"
+                                     collapsed="true" styleClass="scenarioPanel">
+
+                                <f:facet name="header">
+                                    <div class="hdrLine">
+                                        <div style="min-width:0;">
+                                            <div class="hdrText">#{sc.name}</div>
+                                            <div class="subMeta">
+                                                משך: #{sc.durationText}
+                                            </div>
+                                            <ui:fragment rendered="#{not empty sc.tags}">
+                                                <div class="tags">
+                                                    <ui:repeat value="#{sc.tags}" var="tg">
+                                                        <span class="tag">#{tg}</span>
+                                                    </ui:repeat>
+                                                </div>
+                                            </ui:fragment>
+                                        </div>
+
+                                        <span class="pill #{runDetailsView.statusCss(sc.status)}">
+                                        #{runDetailsView.statusHebrew(sc.status)}
+                                    </span>
+                                    </div>
+                                </f:facet>
+
+                                <!-- Steps inside scenario -->
+                                <ui:repeat value="#{sc.steps}" var="st">
+
+                                    <p:panel toggleable="true" toggleableHeader="true"
+                                             collapsed="true" styleClass="stepPanel">
+
+                                        <f:facet name="header">
+                                            <div class="hdrLine">
+                                                <div class="hdrText">
+                                                    <span style="font-weight:900;">#{st.keyword}</span>
+                                                    <span> — </span>
+                                                    <span>#{st.text}</span>
+                                                </div>
+
+                                                <div style="display:flex; align-items:center; gap:8px;">
+                                                    <span class="subMeta">#{st.durationText}</span>
+                                                    <span class="pill #{runDetailsView.statusCss(st.status)}">
+                                                    #{runDetailsView.statusHebrew(st.status)}
+                                                </span>
+                                                </div>
+                                            </div>
+                                        </f:facet>
+
+                                        <!-- Log prints: render Extent HTML as-is (no extra borders/timestamps/badges) -->
+                                        <ui:repeat value="#{st.logs}" var="lg">
+                                            <ui:fragment rendered="#{not empty lg.detailsHtml or not empty lg.mediaPath}">
+                                                <div class="logRow">
+                                                    <ui:fragment rendered="#{not empty lg.detailsHtml}">
+                                                        <h:outputText value="#{lg.detailsHtml}" escape="false"/>
+                                                    </ui:fragment>
+
+                                                    <ui:fragment rendered="#{not empty lg.mediaPath}">
+                                                        <h:graphicImage value="#{runDetailsView.assetUrl(lg.mediaPath)}"
+                                                                        styleClass="mediaImg"/>
+                                                    </ui:fragment>
+                                                </div>
+                                            </ui:fragment>
+                                        </ui:repeat>
+
+                                    </p:panel>
+
+                                </ui:repeat>
+
+                            </p:panel>
+
+                        </ui:repeat>
+
+                    </ui:fragment>
+
+                </div>
+
+                <!-- RIGHT: tree pane -->
+                <div class="pane treeWrap">
+
+                    <div class="paneHeader">
+                        <div class="paneTitle">עץ תוצאות</div>
+                        <span class="subMeta">Features: #{runDetailsView.features.size()}</span>
+                    </div>
+
+                    <p:tree id="featTree"
+                            value="#{runDetailsView.featureTreeRoot}"
+                            var="t"
+                            selectionMode="single"
+                            selection="#{runDetailsView.selectedTreeNode}"
+                            styleClass="featTree ui-tree-rtl">
+
+                        <p:ajax event="select"
+                                listener="#{runDetailsView.onTreeSelect}"
+                                process="@this"
+                                update="contentPane titleBar"/>
+
+                        <p:treeNode type="GROUP">
+                            <div class="treeRow">
+                            <span class="treeGroup">
+                                <i class="fa-regular fa-folder-open" style="margin-left:6px;"></i>
+                                #{t.label}
+                            </span>
+                                <span></span>
+                            </div>
+                        </p:treeNode>
+
+                        <p:treeNode type="FEATURE">
+                            <div class="treeRow">
+                            <span class="treeLabel">
+                                <i class="fa-regular fa-file-lines" style="margin-left:6px;"></i>
+                                #{t.label}
+                            </span>
+                                <span class="pill #{runDetailsView.statusCss(t.status)}">
+                                #{runDetailsView.statusHebrew(t.status)}
+                            </span>
+                            </div>
+                        </p:treeNode>
+
+                        <!-- Fallback template: prevents blank tree if a node type mismatches -->
+                        <p:treeNode>
+                            <span>#{t.label}</span>
+                        </p:treeNode>
+
+                    </p:tree>
+
+                </div>
+
+            </div>
+
+        </h:form>
+
+    </div>
+</h:body>
+</html>
