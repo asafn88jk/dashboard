@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leumit.dashboard.config.DashboardFiltersProperties;
 import com.leumit.dashboard.model.ExtentSummary;
+import com.leumit.dashboard.repo.RunPicker;
+import com.leumit.dashboard.run.RunHistoryAnalyzer;
 import lombok.extern.slf4j.Slf4j;
 import org.primefaces.event.NodeSelectEvent;
 import org.primefaces.model.DefaultTreeNode;
@@ -20,6 +22,8 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Component("runDetailsView")
@@ -31,8 +35,20 @@ public class RunDetailsView implements Serializable {
     // Extent time strings look like: "Jan 14, 2026, 9:28:24 AM" (note narrow no-break space)
     private static final DateTimeFormatter EXTENT_TIME_FMT =
             DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm:ss a", Locale.ENGLISH);
+    private static final DateTimeFormatter RUN_LABEL_FMT =
+            DateTimeFormatter.ofPattern("dd.MM HH:mm", Locale.ENGLISH);
+    private static final Pattern LOG_TS_PATTERN = Pattern.compile(
+            "<p[^>]*class=['\"]timestamp['\"][^>]*>([^<]+)</p>",
+            Pattern.CASE_INSENSITIVE
+    );
+    private static final Pattern LOG_LOCALTIME_PATTERN = Pattern.compile(
+            "<p[^>]*class=['\"]localtime['\"][^>]*>.*?</p>",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    );
+    private static final int HISTORY_LIMIT = 7;
 
     private final DashboardFiltersProperties props;
+    private final RunPicker runPicker;
 
     // view params
     private String filter;
@@ -40,6 +56,7 @@ public class RunDetailsView implements Serializable {
     private String run;
 
     private boolean loaded;
+    private String loadedKey;
     private String error;
 
     private Path runDir;
@@ -54,11 +71,19 @@ public class RunDetailsView implements Serializable {
     private TreeNode<TreeItem> selectedTreeNode;
     private final Map<String, TreeNode<TreeItem>> featureIdToTreeNode = new HashMap<>();
 
-    public RunDetailsView(DashboardFiltersProperties props) {
+    // history/flaky
+    private List<RunOption> recentRuns = List.of();
+    private final Map<String, String> runLabelsByFolder = new HashMap<>();
+    private final Map<String, ScenarioHistory> scenarioHistoryByKey = new HashMap<>();
+    private final Map<String, Integer> featureFlakyCounts = new HashMap<>();
+    private int flakyScenarioCount;
+
+    public RunDetailsView(DashboardFiltersProperties props, RunPicker runPicker) {
         this.props = props;
+        this.runPicker = runPicker;
         // IMPORTANT: use typed root so <p:treeNode type="ROOT"> can match if you define it (optional)
         this.featureTreeRoot = new DefaultTreeNode<>("ROOT",
-                new TreeItem(TreeType.ROOT, "ROOT", null, null),
+                new TreeItem(TreeType.ROOT, "ROOT", null, null, List.of(), 0, 0, 0, 0, 0),
                 null
         );
     }
@@ -68,21 +93,28 @@ public class RunDetailsView implements Serializable {
      * Runs AFTER <f:viewParam> is applied.
      */
     public void preRender() {
-        if (loaded) return;
+        String key = String.join("|", String.valueOf(filter), String.valueOf(item), String.valueOf(run));
+        if (loaded && Objects.equals(loadedKey, key)) return;
         loaded = true;
+        loadedKey = key;
 
         try {
+            this.error = null;
             if (isBlank(filter) || isBlank(item) || isBlank(run)) {
                 throw new IllegalArgumentException("Missing URL params: filter/item/run");
             }
 
-            this.runDir = resolveRunDir(filter, item, run);
+            DashboardFiltersProperties.Item itemConfig = resolveItemConfig(filter, item);
+            this.runDir = resolveRunDir(itemConfig, run);
 
             Path summaryPath = runDir.resolve("extent.summary.json");
             this.summary = readSummary(summaryPath);
 
             Path extentPath = runDir.resolve("extent.json");
             this.features = parseExtentToModel(extentPath);
+
+            loadRunHistory(itemConfig, summaryPath);
+            computeFeatureFlakyCounts();
 
             buildFeatureTree(this.features);
 
@@ -109,11 +141,16 @@ public class RunDetailsView implements Serializable {
             this.featureIdToTreeNode.clear();
 
             this.featureTreeRoot = new DefaultTreeNode<>("ROOT",
-                    new TreeItem(TreeType.ROOT, "ROOT", null, null),
+                    new TreeItem(TreeType.ROOT, "ROOT", null, null, List.of(), 0, 0, 0, 0, 0),
                     null
             );
 
             this.selectedTreeNode = null;
+            this.recentRuns = List.of();
+            this.runLabelsByFolder.clear();
+            this.scenarioHistoryByKey.clear();
+            this.featureFlakyCounts.clear();
+            this.flakyScenarioCount = 0;
         }
     }
 
@@ -156,18 +193,20 @@ public class RunDetailsView implements Serializable {
 
     // ---------------------- resolution ----------------------
 
-    private Path resolveRunDir(String filterName, String itemTitle, String runFolder) {
+    private DashboardFiltersProperties.Item resolveItemConfig(String filterName, String itemTitle) {
         var f = props.getFilters().stream()
                 .filter(x -> Objects.equals(x.getName(), filterName))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unknown filter: " + filterName));
 
-        var it = f.getItems().stream()
+        return f.getItems().stream()
                 .filter(x -> Objects.equals(x.getTitle(), itemTitle))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unknown item: " + itemTitle));
+    }
 
-        Path base = Path.of(it.getBaseDir()).normalize().toAbsolutePath();
+    private Path resolveRunDir(DashboardFiltersProperties.Item item, String runFolder) {
+        Path base = Path.of(item.getBaseDir()).normalize().toAbsolutePath();
         Path dir = base.resolve(runFolder).normalize().toAbsolutePath();
 
         if (!dir.startsWith(base)) {
@@ -184,6 +223,130 @@ public class RunDetailsView implements Serializable {
             throw new IllegalArgumentException("Missing extent.summary.json: " + p);
         }
         return MAPPER.readValue(Files.readString(p), ExtentSummary.class);
+    }
+
+    // ---------------------- run history / flaky ----------------------
+
+    private void loadRunHistory(DashboardFiltersProperties.Item itemConfig, Path summaryPath) {
+        recentRuns = List.of();
+        runLabelsByFolder.clear();
+        scenarioHistoryByKey.clear();
+        flakyScenarioCount = 0;
+
+        if (itemConfig == null) return;
+
+        Pattern p = Pattern.compile(itemConfig.getDirNameRegex());
+        Path base = Path.of(itemConfig.getBaseDir());
+
+        List<RunPicker.PickedRun> recent;
+        try {
+            recent = new ArrayList<>(runPicker.pickLatestRuns(base, p, HISTORY_LIMIT));
+        } catch (Exception e) {
+            recent = new ArrayList<>();
+        }
+
+        Path currentDir = runDir == null ? null : runDir.toAbsolutePath().normalize();
+        boolean hasCurrent = currentDir != null && recent.stream()
+                .anyMatch(r -> r.runDir().toAbsolutePath().normalize().equals(currentDir));
+
+        if (!hasCurrent && runDir != null && summary != null) {
+            try {
+                long lm = Files.getLastModifiedTime(summaryPath).toMillis();
+                recent.add(0, new RunPicker.PickedRun(runDir, summaryPath, lm, summary));
+            } catch (Exception ignored) {
+                // If we can't stat current run, keep the list as-is
+            }
+        }
+
+        if (recent.size() > HISTORY_LIMIT) {
+            recent = recent.subList(0, HISTORY_LIMIT);
+        }
+
+        List<RunOption> options = new ArrayList<>();
+        for (RunPicker.PickedRun pr : recent) {
+            String runFolder = pr.runDir().getFileName().toString();
+            String label = formatRunLabel(pr);
+            String tooltip = formatRunTooltip(pr);
+            runLabelsByFolder.put(runFolder, label);
+            options.add(new RunOption(runFolder, label, tooltip, Objects.equals(runFolder, run)));
+        }
+        recentRuns = options;
+
+        Map<String, List<RunStatus>> history = new HashMap<>();
+        for (RunPicker.PickedRun pr : recent) {
+            String runFolder = pr.runDir().getFileName().toString();
+            Path extent = pr.runDir().resolve("extent.json");
+            try {
+                Map<String, String> statuses = RunHistoryAnalyzer.parseScenarioStatuses(extent);
+                for (Map.Entry<String, String> entry : statuses.entrySet()) {
+                    history.computeIfAbsent(entry.getKey(), k -> new ArrayList<>())
+                            .add(new RunStatus(runFolder, entry.getValue()));
+                }
+            } catch (Exception ignored) {
+                // Ignore bad runs when building history
+            }
+        }
+
+        for (Map.Entry<String, List<RunStatus>> entry : history.entrySet()) {
+            List<RunStatus> statuses = entry.getValue();
+            boolean flaky = RunHistoryAnalyzer.isFlaky(
+                    statuses.stream().map(RunStatus::status).toList()
+            );
+            scenarioHistoryByKey.put(entry.getKey(), new ScenarioHistory(statuses, flaky));
+            if (flaky) flakyScenarioCount++;
+        }
+    }
+
+    private void computeFeatureFlakyCounts() {
+        featureFlakyCounts.clear();
+        if (features == null || features.isEmpty()) return;
+
+        for (FeatureModel f : features) {
+            int count = 0;
+            for (ScenarioModel sc : f.scenarios()) {
+                if (isScenarioFlaky(f, sc)) {
+                    count++;
+                }
+            }
+            featureFlakyCounts.put(f.id(), count);
+        }
+    }
+
+    private boolean isScenarioFlaky(FeatureModel feature, ScenarioModel scenario) {
+        String key = scenarioKeyFor(feature, scenario);
+        ScenarioHistory history = scenarioHistoryByKey.get(key);
+        return history != null && history.flaky();
+    }
+
+    private String scenarioKeyFor(FeatureModel feature, ScenarioModel scenario) {
+        List<String> fullPath = new ArrayList<>();
+        if (feature.groupPath() != null) {
+            fullPath.addAll(feature.groupPath());
+        }
+        fullPath.add(feature.title());
+        return RunHistoryAnalyzer.scenarioKey(fullPath, scenario.name());
+    }
+
+    private String formatRunLabel(RunPicker.PickedRun pr) {
+        if (pr == null || pr.summary() == null || pr.summary().run() == null) {
+            return pr == null ? "" : pr.runDir().getFileName().toString();
+        }
+        LocalDateTime start = parseExtent(pr.summary().run().startTime());
+        if (start != null) {
+            return start.format(RUN_LABEL_FMT);
+        }
+        return pr.runDir().getFileName().toString();
+    }
+
+    private static String formatRunTooltip(RunPicker.PickedRun pr) {
+        if (pr == null || pr.summary() == null || pr.summary().totals() == null) {
+            return pr == null ? "" : pr.runDir().getFileName().toString();
+        }
+        ExtentSummary.Totals t = pr.summary().totals();
+        return "Pass " + t.pass()
+                + " | Fail " + t.fail()
+                + " | Known Bug " + t.knownBug()
+                + " | Skip " + t.skip();
     }
 
     // ---------------------- parsing: extent.json -> model ----------------------
@@ -206,15 +369,27 @@ public class RunDetailsView implements Serializable {
             String bddType = f.path("bddType").asText("");
             if (!bddType.endsWith(".Feature")) continue;
 
-            String displayName = pickName(f);
-            List<String> groupPath = parseArrowPath(displayName);
-            String featureTitle = groupPath.isEmpty() ? displayName : groupPath.get(groupPath.size() - 1);
-            List<String> groupsOnly = groupPath.size() <= 1 ? List.of() : groupPath.subList(0, groupPath.size() - 1);
+            String featureName = f.path("name").asText("").trim();
+            String featureDisplay = f.path("displayName").asText("").trim();
+            List<String> fullPath = readFeaturePath(f, featureName);
+
+            String featureTitle = !featureDisplay.isBlank()
+                    ? featureDisplay
+                    : (!fullPath.isEmpty() ? fullPath.get(fullPath.size() - 1) : featureName);
+
+            if (fullPath.isEmpty() && !featureTitle.isBlank()) {
+                fullPath = List.of(featureTitle);
+            }
+
+            List<String> groupsOnly = fullPath.size() <= 1
+                    ? List.of()
+                    : fullPath.subList(0, fullPath.size() - 1);
 
             String status = f.path("status").asText("");
             LocalDateTime st = parseExtent(f.path("startTime").asText(""));
             LocalDateTime et = parseExtent(f.path("endTime").asText(""));
             String durationText = formatDurationSafe(st, et);
+            List<String> featureTags = readStringArray(f.get("categorySet"));
 
             List<ScenarioModel> scenarios = new ArrayList<>();
             JsonNode scenArr = f.get("children");
@@ -240,15 +415,15 @@ public class RunDetailsView implements Serializable {
 
                             String stepType = step.path("bddType").asText("");
                             String rawStepName = pickName(step);
+                            String stepDesc = step.path("description").asText("");
 
                             StepLabel lbl = splitStepLabel(stepType, rawStepName);
 
                             String stepStatus = step.path("status").asText("");
                             LocalDateTime stepSt = parseExtent(step.path("startTime").asText(""));
                             LocalDateTime stepEt = parseExtent(step.path("endTime").asText(""));
-                            String stepDur = formatDurationSafe(stepSt, stepEt);
-
                             List<LogEntry> logs = readLogs(step.get("logs"));
+                            String stepDur = stepDurationText(logs, stepSt, stepEt);
 
                             // If any log has media, show as step "preview" too
                             String stepMedia = logs.stream()
@@ -256,6 +431,28 @@ public class RunDetailsView implements Serializable {
                                     .filter(p -> p != null && !p.isBlank())
                                     .findFirst()
                                     .orElse(null);
+
+                            if (isAfterStep(stepDesc) && !steps.isEmpty()) {
+                                StepModel prev = steps.remove(steps.size() - 1);
+                                List<LogEntry> mergedLogs = new ArrayList<>(prev.logs());
+                                mergedLogs.addAll(logs);
+                                String mergedMedia = !isBlank(prev.screenshotPath()) ? prev.screenshotPath() : stepMedia;
+                                String mergedDur = stepDurationText(mergedLogs, null, null);
+                                if (isBlank(mergedDur) || "—".equals(mergedDur)) {
+                                    mergedDur = prev.durationText();
+                                }
+
+                                steps.add(new StepModel(
+                                        prev.id(),
+                                        prev.keyword(),
+                                        prev.text(),
+                                        prev.status(),
+                                        mergedDur,
+                                        mergedLogs,
+                                        mergedMedia
+                                ));
+                                continue;
+                            }
 
                             steps.add(new StepModel(
                                     UUID.randomUUID().toString(),
@@ -286,6 +483,7 @@ public class RunDetailsView implements Serializable {
                     featureTitle,
                     status,
                     durationText,
+                    featureTags,
                     scenarios
             ));
         }
@@ -315,6 +513,21 @@ public class RunDetailsView implements Serializable {
         return out;
     }
 
+    private static List<String> readFeaturePath(JsonNode n, String fallbackName) {
+        JsonNode p = n.get("path");
+        if (p != null && p.isArray()) {
+            List<String> out = new ArrayList<>();
+            for (JsonNode x : p) {
+                if (x != null && x.isTextual()) {
+                    String s = x.asText("").trim();
+                    if (!s.isBlank()) out.add(s);
+                }
+            }
+            if (!out.isEmpty()) return out;
+        }
+        return parseArrowPath(fallbackName);
+    }
+
     private static List<String> readStringArray(JsonNode arr) {
         if (arr == null || !arr.isArray()) return List.of();
         List<String> out = new ArrayList<>();
@@ -329,7 +542,10 @@ public class RunDetailsView implements Serializable {
         for (JsonNode l : logsArr) {
             String ts = l.path("timestamp").asText("");
             String st = l.path("status").asText("");
-            String details = l.path("details").asText("");
+            String rawDetails = l.path("details").asText("");
+            long durationMillis = extractDurationMillis(rawDetails);
+            String durationText = durationMillis >= 0 ? formatStepDuration(Duration.ofMillis(durationMillis)) : "";
+            String details = stripExtentTimestamps(rawDetails);
 
             String mediaPath = null;
             JsonNode media = l.get("media");
@@ -338,7 +554,7 @@ public class RunDetailsView implements Serializable {
                 if (p != null && !p.isBlank()) mediaPath = p;
             }
 
-            out.add(new LogEntry(ts, st, details, mediaPath));
+            out.add(new LogEntry(ts, st, details, mediaPath, durationText, durationMillis));
         }
         return out;
     }
@@ -379,29 +595,54 @@ public class RunDetailsView implements Serializable {
         return new KeywordPair("", "");
     }
 
+    private static boolean isAfterStep(String description) {
+        return "AFTER_STEP".equalsIgnoreCase(String.valueOf(description).trim());
+    }
+
     private record KeywordPair(String english, String hebrew) {}
 
     // ---------------------- tree build ----------------------
 
     private void buildFeatureTree(List<FeatureModel> features) {
         this.featureIdToTreeNode.clear();
+        Map<String, TreeNode<TreeItem>> groupNodes = new HashMap<>();
+        Map<String, int[]> groupCounts = new HashMap<>();
+        Map<String, Integer> groupFlakyCounts = new HashMap<>();
+
+        for (FeatureModel f : features) {
+            if (f.groupPath() == null || f.groupPath().isEmpty()) continue;
+            StringBuilder key = new StringBuilder();
+            int featureFlaky = featureFlakyCounts.getOrDefault(f.id(), 0);
+            for (int i = 0; i < f.groupPath().size(); i++) {
+                if (i > 0) key.append(" / ");
+                key.append(f.groupPath().get(i));
+                addGroupCount(groupCounts, key.toString(), f.status());
+                if (featureFlaky > 0) {
+                    groupFlakyCounts.merge(key.toString(), featureFlaky, Integer::sum);
+                }
+            }
+        }
 
         // IMPORTANT:
         // If your XHTML uses <p:treeNode type="GROUP"> and <p:treeNode type="FEATURE">,
         // then nodes MUST be created with matching "type" strings or they will render blank.
         this.featureTreeRoot = new DefaultTreeNode<>("ROOT",
-                new TreeItem(TreeType.ROOT, "ROOT", null, null),
+                new TreeItem(TreeType.ROOT, "ROOT", null, null, List.of(), 0, 0, 0, 0, 0),
                 null
         );
 
         for (FeatureModel f : features) {
             TreeNode<TreeItem> parent = featureTreeRoot;
 
-            for (String g : f.groupPath()) {
-                parent = ensureGroupNode(parent, g);
+            StringBuilder key = new StringBuilder();
+            for (int i = 0; i < f.groupPath().size(); i++) {
+                if (i > 0) key.append(" / ");
+                key.append(f.groupPath().get(i));
+                parent = ensureGroupNode(parent, f.groupPath().get(i), key.toString(), groupNodes, groupCounts, groupFlakyCounts);
             }
 
-            TreeItem leaf = new TreeItem(TreeType.FEATURE, f.title(), f.status(), f.id());
+            int featureFlaky = featureFlakyCounts.getOrDefault(f.id(), 0);
+            TreeItem leaf = new TreeItem(TreeType.FEATURE, f.title(), f.status(), f.id(), f.tags(), 0, 0, 0, 0, featureFlaky);
             TreeNode<TreeItem> leafNode = new DefaultTreeNode<>("FEATURE", leaf, parent);
 
             featureIdToTreeNode.put(f.id(), leafNode);
@@ -411,19 +652,52 @@ public class RunDetailsView implements Serializable {
         featureTreeRoot.setExpanded(true);
     }
 
-    private TreeNode<TreeItem> ensureGroupNode(TreeNode<TreeItem> parent, String label) {
-        for (TreeNode<TreeItem> ch : parent.getChildren()) {
-            TreeItem d = ch.getData();
-            if (d != null && d.type() == TreeType.GROUP && Objects.equals(d.label(), label)) {
-                return ch;
-            }
+    private TreeNode<TreeItem> ensureGroupNode(
+            TreeNode<TreeItem> parent,
+            String label,
+            String pathKey,
+            Map<String, TreeNode<TreeItem>> groupNodes,
+            Map<String, int[]> groupCounts,
+            Map<String, Integer> groupFlakyCounts
+    ) {
+        TreeNode<TreeItem> existing = groupNodes.get(pathKey);
+        if (existing != null) {
+            return existing;
         }
+        int[] counts = groupCounts.getOrDefault(pathKey, new int[4]);
+        int flakyCount = groupFlakyCounts.getOrDefault(pathKey, 0);
         TreeNode<TreeItem> created = new DefaultTreeNode<>("GROUP",
-                new TreeItem(TreeType.GROUP, label, null, null),
+                new TreeItem(
+                        TreeType.GROUP,
+                        label,
+                        null,
+                        null,
+                        List.of(),
+                        counts[0],
+                        counts[1],
+                        counts[2],
+                        counts[3],
+                        flakyCount
+                ),
                 parent
         );
+        created.setSelectable(false);
         created.setExpanded(true);
+        groupNodes.put(pathKey, created);
         return created;
+    }
+
+    private static void addGroupCount(Map<String, int[]> counts, String key, String status) {
+        if (key == null || key.isBlank()) return;
+        int[] c = counts.computeIfAbsent(key, k -> new int[4]); // pass, fail, knownBug, skip
+        String st = String.valueOf(status).toUpperCase(Locale.ROOT);
+        switch (st) {
+            case "PASS" -> c[0]++;
+            case "FAIL" -> c[1]++;
+            case "WARNING", "KNOWNBUG", "KNOWN_BUG", "KNOWN BUG" -> c[2]++;
+            case "SKIP" -> c[3]++;
+            default -> { }
+        }
     }
 
     // ---------------------- UI helpers ----------------------
@@ -434,7 +708,7 @@ public class RunDetailsView implements Serializable {
             case "PASS" -> "st-pass";
             case "FAIL" -> "st-fail";
             case "SKIP" -> "st-skip";
-            case "WARNING" -> "st-knownbug";
+            case "WARNING", "KNOWNBUG", "KNOWN_BUG", "KNOWN BUG" -> "st-knownbug";
             case "INFO" -> "st-info";
             default -> "st-unknown";
         };
@@ -446,9 +720,57 @@ public class RunDetailsView implements Serializable {
             case "PASS" -> "עבר בהצלחה";
             case "FAIL" -> "נכשל";
             case "SKIP" -> "דולג";
-            case "WARNING" -> "באג ידוע";
+            case "WARNING", "KNOWNBUG", "KNOWN_BUG", "KNOWN BUG" -> "באג ידוע";
             case "INFO" -> "מידע";
             default -> status;
+        };
+    }
+
+    public String statusBadgeLabel(String status) {
+        if (status == null) return "";
+        return switch (status.toUpperCase()) {
+            case "PASS" -> "Pass";
+            case "FAIL" -> "Fail";
+            case "SKIP" -> "Skip";
+            case "WARNING", "KNOWNBUG", "KNOWN_BUG", "KNOWN BUG" -> "Known Bug";
+            case "INFO" -> "Info";
+            default -> status;
+        };
+    }
+
+    public String statusIconClass(String status) {
+        if (status == null) return "fa-regular fa-circle";
+        return switch (status.toUpperCase()) {
+            case "PASS" -> "fa-solid fa-circle-check";
+            case "FAIL" -> "fa-solid fa-circle-xmark";
+            case "SKIP" -> "fa-solid fa-circle-minus";
+            case "WARNING", "KNOWNBUG", "KNOWN_BUG", "KNOWN BUG" -> "fa-solid fa-triangle-exclamation";
+            case "INFO" -> "fa-solid fa-circle-info";
+            default -> "fa-regular fa-circle";
+        };
+    }
+
+    public String statusIconTone(String status) {
+        if (status == null) return "ico-unknown";
+        return switch (status.toUpperCase()) {
+            case "PASS" -> "ico-pass";
+            case "FAIL" -> "ico-fail";
+            case "SKIP" -> "ico-skip";
+            case "WARNING", "KNOWNBUG", "KNOWN_BUG", "KNOWN BUG" -> "ico-knownbug";
+            case "INFO" -> "ico-info";
+            default -> "ico-unknown";
+        };
+    }
+
+    public String statusShortLabel(String status) {
+        if (status == null) return "?";
+        return switch (status.toUpperCase()) {
+            case "PASS" -> "P";
+            case "FAIL" -> "F";
+            case "SKIP" -> "S";
+            case "WARNING", "KNOWNBUG", "KNOWN_BUG", "KNOWN BUG" -> "K";
+            case "INFO" -> "I";
+            default -> "?";
         };
     }
 
@@ -459,12 +781,72 @@ public class RunDetailsView implements Serializable {
         return formatDurationSafe(st, et);
     }
 
+    public boolean hasHistory() { return recentRuns != null && !recentRuns.isEmpty(); }
+
+    public boolean isHasHistory() { return hasHistory(); }
+
+    public List<RunOption> getRecentRuns() { return recentRuns; }
+
+    public String runLabel(String runFolder) {
+        if (runFolder == null) return "";
+        return runLabelsByFolder.getOrDefault(runFolder, runFolder);
+    }
+
+    public List<RunStatus> getScenarioHistory(ScenarioModel sc) {
+        if (selectedFeature == null || sc == null) return List.of();
+        String key = scenarioKeyFor(selectedFeature, sc);
+        ScenarioHistory history = scenarioHistoryByKey.get(key);
+        return history == null ? List.of() : history.statuses();
+    }
+
+    public List<RunStatus> scenarioHistory(ScenarioModel sc) {
+        return getScenarioHistory(sc);
+    }
+
+    public boolean isScenarioFlaky(ScenarioModel sc) {
+        if (selectedFeature == null || sc == null) return false;
+        return isScenarioFlaky(selectedFeature, sc);
+    }
+
+    public boolean scenarioFlaky(ScenarioModel sc) {
+        return isScenarioFlaky(sc);
+    }
+
+    public int getSelectedFeatureFlakyCount() {
+        if (selectedFeature == null) return 0;
+        return featureFlakyCounts.getOrDefault(selectedFeature.id(), 0);
+    }
+
+    public String getSelectedFeatureFullTitle() {
+        if (selectedFeature == null) return "";
+        List<String> parts = new ArrayList<>(selectedFeature.groupPath());
+        parts.add(selectedFeature.title());
+        return String.join(" ← ", parts);
+    }
+
     public String assetUrl(String relativePath) {
         if (relativePath == null || relativePath.isBlank()) return "";
         return "/run-asset?filter=" + enc(filter)
                + "&item=" + enc(item)
                + "&run=" + enc(run)
                + "&path=" + enc(relativePath);
+    }
+
+    public List<String> getAllTags() {
+        if (features == null || features.isEmpty()) return List.of();
+        Set<String> out = new TreeSet<>();
+        for (FeatureModel f : features) {
+            if (f.tags() == null) continue;
+            for (String t : f.tags()) {
+                if (t != null && !t.isBlank()) out.add(t);
+            }
+        }
+        return new ArrayList<>(out);
+    }
+
+    public String joinTags(List<String> tags) {
+        if (tags == null || tags.isEmpty()) return "";
+        return String.join(" ", tags);
     }
 
     // ---------------------- time helpers ----------------------
@@ -498,6 +880,88 @@ public class RunDetailsView implements Serializable {
     }
 
     private static String two(long n) { return n < 10 ? "0" + n : Long.toString(n); }
+
+    private static String stepDurationText(List<LogEntry> logs, LocalDateTime st, LocalDateTime et) {
+        Duration sum = sumLogDurations(logs);
+        if (sum != null) {
+            return formatStepDuration(sum);
+        }
+        if (st == null || et == null) return "—";
+        Duration d = Duration.between(st, et);
+        if (d.isNegative()) return "—";
+        return formatStepDuration(d);
+    }
+
+    private static Duration sumLogDurations(List<LogEntry> logs) {
+        if (logs == null || logs.isEmpty()) return null;
+        long totalMillis = 0;
+        boolean found = false;
+        for (LogEntry lg : logs) {
+            long ms = lg.durationMillis();
+            if (ms >= 0) {
+                found = true;
+                totalMillis += ms;
+            }
+        }
+        return found ? Duration.ofMillis(totalMillis) : null;
+    }
+
+    private static long extractDurationMillis(String detailsHtml) {
+        if (detailsHtml == null || detailsHtml.isBlank()) return -1;
+        Matcher m = LOG_TS_PATTERN.matcher(detailsHtml);
+        long total = 0;
+        boolean found = false;
+        while (m.find()) {
+            long ms = parseDurationMillis(m.group(1));
+            if (ms >= 0) {
+                total += ms;
+                found = true;
+            }
+        }
+        return found ? total : -1;
+    }
+
+    private static long parseDurationMillis(String raw) {
+        if (raw == null) return -1;
+        String[] parts = raw.trim().split(":");
+        try {
+            if (parts.length == 2) {
+                long min = Long.parseLong(parts[0]);
+                long sec = Long.parseLong(parts[1]);
+                return (min * 60 + sec) * 1000;
+            }
+            if (parts.length == 3) {
+                long hrs = Long.parseLong(parts[0]);
+                long min = Long.parseLong(parts[1]);
+                long sec = Long.parseLong(parts[2]);
+                return (hrs * 3600 + min * 60 + sec) * 1000;
+            }
+            if (parts.length == 4) {
+                long hrs = Long.parseLong(parts[0]);
+                long min = Long.parseLong(parts[1]);
+                long sec = Long.parseLong(parts[2]);
+                long ms = Long.parseLong(parts[3]);
+                return (hrs * 3600 + min * 60 + sec) * 1000 + ms;
+            }
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
+        return -1;
+    }
+
+    private static String formatStepDuration(Duration d) {
+        long totalSeconds = Math.max(0, (long) Math.floor(d.toMillis() / 1000.0));
+        long minutes = totalSeconds / 60;
+        long seconds = totalSeconds % 60;
+        return String.format(Locale.ROOT, "%02d:%02d", minutes, seconds);
+    }
+
+    private static String stripExtentTimestamps(String html) {
+        if (html == null || html.isBlank()) return "";
+        String cleaned = LOG_TS_PATTERN.matcher(html).replaceAll("");
+        cleaned = LOG_LOCALTIME_PATTERN.matcher(cleaned).replaceAll("");
+        return cleaned.trim();
+    }
 
     // ---------------------- misc helpers ----------------------
 
@@ -547,7 +1011,30 @@ public class RunDetailsView implements Serializable {
             TreeType type,
             String label,
             String status,
-            String featureId
+            String featureId,
+            List<String> tags,
+            int passCount,
+            int failCount,
+            int knownBugCount,
+            int skipCount,
+            int flakyCount
+    ) implements Serializable {}
+
+    public record RunOption(
+            String runFolder,
+            String label,
+            String tooltip,
+            boolean current
+    ) implements Serializable {}
+
+    public record RunStatus(
+            String runFolder,
+            String status
+    ) implements Serializable {}
+
+    public record ScenarioHistory(
+            List<RunStatus> statuses,
+            boolean flaky
     ) implements Serializable {}
 
     public record FeatureModel(
@@ -556,6 +1043,7 @@ public class RunDetailsView implements Serializable {
             String title,
             String status,
             String durationText,
+            List<String> tags,
             List<ScenarioModel> scenarios
     ) implements Serializable {}
 
@@ -582,7 +1070,9 @@ public class RunDetailsView implements Serializable {
             String timestamp,
             String status,
             String detailsHtml,
-            String mediaPath
+            String mediaPath,
+            String durationText,
+            long durationMillis
     ) implements Serializable {}
 
     private record StepLabel(String keyword, String text) {}

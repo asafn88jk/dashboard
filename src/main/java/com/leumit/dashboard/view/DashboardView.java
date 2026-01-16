@@ -2,6 +2,8 @@ package com.leumit.dashboard.view;
 
 import com.leumit.dashboard.config.DashboardFiltersProperties;
 import com.leumit.dashboard.repo.RunPicker;
+import com.leumit.dashboard.run.RunHistoryAnalyzer;
+import com.leumit.dashboard.run.RunHistoryAnalyzer.FlakySummary;
 import jakarta.annotation.PostConstruct;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
@@ -40,6 +42,7 @@ public class DashboardView implements Serializable {
 
   private static final DateTimeFormatter EXTENT_TIME_FMT =
           DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm:ss a", Locale.ENGLISH);
+  private static final int HISTORY_LIMIT = 7;
 
   private static LocalDateTime parseExtentTime(String raw) {
     if (raw == null || raw.isBlank()) return null;
@@ -104,7 +107,16 @@ public class DashboardView implements Serializable {
         Path base = Path.of(item.getBaseDir());
         Pattern p = Pattern.compile(item.getDirNameRegex());
 
-        runPicker.pickLatest(base, p).ifPresent(picked -> {
+        List<RunPicker.PickedRun> recent = runPicker.pickLatestRuns(base, p, HISTORY_LIMIT);
+        if (recent.isEmpty()) {
+          continue;
+        }
+
+        RunPicker.PickedRun picked = recent.get(0);
+        FlakySummary flakySummary = RunHistoryAnalyzer.computeFlakySummary(
+                recent.stream().map(RunPicker.PickedRun::runDir).toList()
+        );
+
           var totals = picked.summary().totals();
 
           int total = Math.max(1, totals.total());
@@ -139,10 +151,10 @@ public class DashboardView implements Serializable {
                   json,
                   filterName,
                   item.getTitle(),
-                  runFolder
+                  runFolder,
+                  flakySummary.flakyScenarios(),
+                  flakySummary.totalScenarios()
           ));
-
-        });
 
       } catch (Exception ignored) {
         // If an item is misconfigured (missing dir, regex, json), just skip it

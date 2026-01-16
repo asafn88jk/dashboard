@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.FileTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -17,7 +18,11 @@ public class RunPicker {
   private final ObjectMapper mapper = new ObjectMapper();
 
   public Optional<PickedRun> pickLatest(Path baseDir, Pattern dirNamePattern) throws IOException {
-    if (!Files.isDirectory(baseDir)) return Optional.empty();
+    return pickLatestRuns(baseDir, dirNamePattern, 1).stream().findFirst();
+  }
+
+  public List<PickedRun> pickLatestRuns(Path baseDir, Pattern dirNamePattern, int limit) throws IOException {
+    if (limit <= 0 || !Files.isDirectory(baseDir)) return List.of();
 
     try (Stream<Path> s = Files.list(baseDir)) {
       return s.filter(Files::isDirectory)
@@ -25,7 +30,7 @@ public class RunPicker {
           .map(runDir -> toCandidate(runDir))
           .flatMap(Optional::stream)
           .sorted((a, b) -> b.lastModified().compareTo(a.lastModified()))
-          .findFirst()
+          .limit(limit)
           .map(c -> {
             try {
               ExtentSummary summary = mapper.readValue(Files.readString(c.summaryPath()), ExtentSummary.class);
@@ -34,7 +39,8 @@ public class RunPicker {
               return null;
             }
           })
-          .filter(r -> r != null);
+          .filter(r -> r != null)
+          .toList();
     }
   }
 

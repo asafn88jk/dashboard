@@ -10,6 +10,7 @@ public record DashboardCard(
         String doughnutJson,
         String filterName,
         String itemTitle,
-        String runFolder
+        String runFolder,
+        int flakyScenarios,
+        int totalScenarios
 ) {}
-
