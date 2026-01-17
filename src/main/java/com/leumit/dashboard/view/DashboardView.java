@@ -40,8 +40,12 @@ public class DashboardView implements Serializable {
     this.runPicker = runPicker;
   }
 
-  private static final DateTimeFormatter EXTENT_TIME_FMT =
-          DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm:ss a", Locale.ENGLISH);
+  private static final List<DateTimeFormatter> EXTENT_TIME_FMTS = List.of(
+          DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm:ss a", Locale.ENGLISH),
+          DateTimeFormatter.ofPattern("MMM d, yyyy h:mm:ss a", Locale.ENGLISH),
+          DateTimeFormatter.ofPattern("MM.dd.yyyy h:mm:ss a", Locale.ENGLISH),
+          DateTimeFormatter.ofPattern("M.d.yyyy h:mm:ss a", Locale.ENGLISH)
+  );
   private static final int HISTORY_LIMIT = 7;
 
   private static LocalDateTime parseExtentTime(String raw) {
@@ -54,11 +58,14 @@ public class DashboardView implements Serializable {
             .replaceAll("\\s+", " ")
             .trim();
 
-    try {
-      return LocalDateTime.parse(s, EXTENT_TIME_FMT);
-    } catch (Exception ignored) {
-      return null;
+    for (DateTimeFormatter fmt : EXTENT_TIME_FMTS) {
+      try {
+        return LocalDateTime.parse(s, fmt);
+      } catch (Exception ignored) {
+        // try next
+      }
     }
+    return null;
   }
 
   private static String formatDuration(Duration d) {

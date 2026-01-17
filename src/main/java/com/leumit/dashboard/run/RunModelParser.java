@@ -1,10 +1,12 @@
 package com.leumit.dashboard.run;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leumit.dashboard.run.RunModel.Kind;
 import com.leumit.dashboard.run.RunModel.LogEntry;
 import com.leumit.dashboard.run.RunModel.RunNode;
+import com.leumit.dashboard.run.SparkHtmlReportParser.Feature;
+import com.leumit.dashboard.run.SparkHtmlReportParser.Log;
+import com.leumit.dashboard.run.SparkHtmlReportParser.Scenario;
+import com.leumit.dashboard.run.SparkHtmlReportParser.Step;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,19 +17,14 @@ import static com.leumit.dashboard.run.RunModel.*;
 
 public final class RunModelParser {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-
     private RunModelParser() {}
 
-    public static RunModel parseExtentJson(Path extentJson) throws Exception {
-        if (!Files.exists(extentJson)) {
-            throw new IllegalArgumentException("Missing extent.json: " + extentJson);
+    public static RunModel parseSparkHtml(Path reportHtml) throws Exception {
+        if (!Files.exists(reportHtml)) {
+            throw new IllegalArgumentException("Missing Spark HTML report: " + reportHtml);
         }
 
-        JsonNode rootArr = MAPPER.readTree(Files.readString(extentJson));
-        if (rootArr == null || !rootArr.isArray()) {
-            throw new IllegalStateException("extent.json root is not an array (expected Feature[]).");
-        }
+        List<Feature> features = SparkHtmlReportParser.parseFeatures(reportHtml);
 
         AtomicInteger seq = new AtomicInteger(1);
         Map<String, RunNode> byId = new LinkedHashMap<>();
@@ -38,32 +35,71 @@ public final class RunModelParser {
 
         int featureCount = 0;
 
-        for (JsonNode featureJson : rootArr) {
-            if (featureJson == null || !featureJson.isObject()) continue;
-
-            // parse the feature subtree (scenario/step/logs)
-            RunNode parsedFeature = parseNodeRecursive(featureJson, seq, byId);
-
-            // derive breadcrumb/group segments from "path" or from name split by "←"
-            List<String> segments = readPathSegments(featureJson);
+        for (Feature feature : features) {
+            List<String> segments = feature.path() == null ? List.of() : feature.path();
             if (segments.isEmpty()) {
-                // fallback: treat as a single leaf
-                segments = List.of(nonBlank(parsedFeature.getName(), "Feature"));
+                segments = parseArrowPath(feature.name());
+            }
+            if (segments.isEmpty()) {
+                segments = List.of(nonBlank(feature.name(), "Feature"));
             }
 
-            // all but last are GROUPS, last is FEATURE display
+            List<RunNode> scenarioNodes = new ArrayList<>();
+            for (Scenario sc : feature.scenarios()) {
+                List<RunNode> stepNodes = new ArrayList<>();
+
+                for (Step st : sc.steps()) {
+                    List<LogEntry> logs = new ArrayList<>();
+                    for (Log lg : st.logs()) {
+                        logs.add(new LogEntry("", "", lg.detailsHtml(), lg.mediaPath()));
+                    }
+
+                    String stepId = makeId(Kind.STEP, st.text(), st.status(), seq.getAndIncrement());
+                    RunNode stepNode = new RunNode(
+                            stepId,
+                            Kind.STEP,
+                            st.text(),
+                            st.text(),
+                            st.status(),
+                            "",
+                            List.of(),
+                            logs,
+                            firstMedia(logs),
+                            List.of()
+                    );
+                    stepNodes.add(stepNode);
+                }
+
+                String scId = makeId(Kind.SCENARIO, sc.name(), sc.status(), seq.getAndIncrement());
+                RunNode scenarioNode = new RunNode(
+                        scId,
+                        Kind.SCENARIO,
+                        sc.name(),
+                        sc.name(),
+                        sc.status(),
+                        "",
+                        List.of(),
+                        List.of(),
+                        null,
+                        stepNodes
+                );
+                scenarioNodes.add(scenarioNode);
+            }
+
             String featureLeafName = segments.get(segments.size() - 1);
-            RunNode featureWithLeafName = new RunNode(
-                    parsedFeature.getId(),
+            String featureId = makeId(Kind.FEATURE, feature.name(), feature.status(), seq.getAndIncrement());
+
+            RunNode featureNode = new RunNode(
+                    featureId,
                     Kind.FEATURE,
                     featureLeafName,
-                    parsedFeature.getFullName(),
-                    parsedFeature.getStatus(),
-                    parsedFeature.getBddType(),
+                    feature.name(),
+                    feature.status(),
+                    "",
                     segments,
-                    parsedFeature.getLogs(),
-                    parsedFeature.getScreenshotPath(),
-                    parsedFeature.getChildren()
+                    List.of(),
+                    null,
+                    scenarioNodes
             );
 
             // Insert into breadcrumb group tree:
@@ -71,7 +107,7 @@ public final class RunModelParser {
             for (int i = 0; i < segments.size() - 1; i++) {
                 cursor = cursor.childGroup(segments.get(i), seq);
             }
-            cursor.addChild(featureWithLeafName);
+            cursor.addChild(featureNode);
 
             featureCount++;
         }
@@ -83,109 +119,14 @@ public final class RunModelParser {
         return new RunModel(frozenRoot, frozenById, featureCount);
     }
 
-    // -------------------- recursive parse --------------------
-
-    private static RunNode parseNodeRecursive(JsonNode n, AtomicInteger seq, Map<String, RunNode> byId) {
-        String bddType = n.path("bddType").asText("");
-        Kind kind = kindFromBddType(bddType);
-
-        String fullName = n.path("name").asText("");
-        String name = n.path("displayName").asText("");
-        if (name == null || name.isBlank()) name = fullName;
-
-        String status = n.path("status").asText("");
-
-        List<String> path = readPathSegments(n);
-
-        // logs (usually on STEP/HOOK)
-        List<LogEntry> logs = readLogs(n);
-
-        String screenshot = logs.stream()
-                .map(LogEntry::mediaPath)
-                .filter(p -> p != null && !p.isBlank())
-                .findFirst()
-                .orElse(null);
-
-        // children
-        List<RunNode> children = new ArrayList<>();
-        JsonNode kids = n.get("children");
-        if (kids != null && kids.isArray()) {
-            for (JsonNode ch : kids) {
-                if (ch == null || !ch.isObject()) continue;
-                children.add(parseNodeRecursive(ch, seq, byId));
+    private static String firstMedia(List<LogEntry> logs) {
+        if (logs == null) return null;
+        for (LogEntry lg : logs) {
+            if (lg != null && lg.mediaPath() != null && !lg.mediaPath().isBlank()) {
+                return lg.mediaPath();
             }
         }
-
-        String id = makeId(kind, fullName, status, seq.getAndIncrement());
-        RunNode out = new RunNode(id, kind, name, fullName, status, bddType, path, logs, screenshot, children);
-        byId.put(id, out);
-        return out;
-    }
-
-    private static Kind kindFromBddType(String bddType) {
-        if (bddType == null) return Kind.NODE;
-        if (bddType.endsWith(".Feature")) return Kind.FEATURE;
-        if (bddType.endsWith(".Scenario")) return Kind.SCENARIO;
-
-        if (bddType.endsWith(".Given") || bddType.endsWith(".When") || bddType.endsWith(".Then") || bddType.endsWith(".And"))
-            return Kind.STEP;
-
-        if (bddType.endsWith(".Asterisk")) return Kind.HOOK;
-        return Kind.NODE;
-    }
-
-    // -------------------- breadcrumb segments --------------------
-
-    private static List<String> readPathSegments(JsonNode n) {
-        JsonNode p = n.get("path");
-        if (p != null && p.isArray()) {
-            List<String> out = new ArrayList<>();
-            for (JsonNode x : p) {
-                if (x != null && x.isTextual()) {
-                    String s = x.asText("").trim();
-                    if (!s.isBlank()) out.add(s);
-                }
-            }
-            if (!out.isEmpty()) return out;
-        }
-
-        // derive from arrows in name
-        String name = n.path("name").asText("").trim();
-        if (name.contains("←")) {
-            String[] parts = name.split("\\s*←\\s*");
-            List<String> out = new ArrayList<>(parts.length);
-            for (String part : parts) {
-                String s = part.trim();
-                if (!s.isBlank()) out.add(s);
-            }
-            return out;
-        }
-
-        return name.isBlank() ? List.of() : List.of(name);
-    }
-
-    // -------------------- logs --------------------
-
-    private static List<LogEntry> readLogs(JsonNode n) {
-        JsonNode logs = n.get("logs");
-        if (logs == null || !logs.isArray()) return List.of();
-
-        List<LogEntry> out = new ArrayList<>();
-        for (JsonNode l : logs) {
-            String ts = l.path("timestamp").asText("");
-            String st = l.path("status").asText("");
-            String details = l.path("details").asText("");
-
-            String mediaPath = null;
-            JsonNode media = l.get("media");
-            if (media != null && media.isObject()) {
-                String p = media.path("path").asText(null);
-                if (p != null && !p.isBlank()) mediaPath = p;
-            }
-
-            out.add(new LogEntry(ts, st, details, mediaPath));
-        }
-        return out;
+        return null;
     }
 
     // -------------------- ids --------------------
@@ -198,6 +139,22 @@ public final class RunModelParser {
 
     private static String nonBlank(String s, String fallback) {
         return (s == null || s.isBlank()) ? fallback : s;
+    }
+
+    private static List<String> parseArrowPath(String s) {
+        if (s == null) return List.of();
+        if (!s.contains("\u2190")) {
+            String t = s.trim();
+            return t.isBlank() ? List.of() : List.of(t);
+        }
+
+        String[] parts = s.split("\\s*\\u2190\\s*");
+        List<String> out = new ArrayList<>();
+        for (String p : parts) {
+            String t = p.trim();
+            if (!t.isBlank()) out.add(t);
+        }
+        return out;
     }
 
     // -------------------- mutable breadcrumb tree --------------------

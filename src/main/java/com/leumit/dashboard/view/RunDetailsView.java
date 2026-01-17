@@ -1,11 +1,15 @@
 package com.leumit.dashboard.view;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leumit.dashboard.config.DashboardFiltersProperties;
 import com.leumit.dashboard.model.ExtentSummary;
 import com.leumit.dashboard.repo.RunPicker;
 import com.leumit.dashboard.run.RunHistoryAnalyzer;
+import com.leumit.dashboard.run.SparkHtmlReportParser;
+import com.leumit.dashboard.run.SparkHtmlReportParser.Feature;
+import com.leumit.dashboard.run.SparkHtmlReportParser.Log;
+import com.leumit.dashboard.run.SparkHtmlReportParser.ParsedReport;
+import com.leumit.dashboard.run.SparkHtmlReportParser.Scenario;
+import com.leumit.dashboard.run.SparkHtmlReportParser.Step;
 import lombok.extern.slf4j.Slf4j;
 import org.primefaces.event.NodeSelectEvent;
 import org.primefaces.model.DefaultTreeNode;
@@ -30,11 +34,12 @@ import java.util.regex.Pattern;
 @Scope("view")
 public class RunDetailsView implements Serializable {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-
-    // Extent time strings look like: "Jan 14, 2026, 9:28:24 AM" (note narrow no-break space)
-    private static final DateTimeFormatter EXTENT_TIME_FMT =
-            DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm:ss a", Locale.ENGLISH);
+    private static final List<DateTimeFormatter> EXTENT_TIME_FMTS = List.of(
+            DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm:ss a", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("MMM d, yyyy h:mm:ss a", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("MM.dd.yyyy h:mm:ss a", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("M.d.yyyy h:mm:ss a", Locale.ENGLISH)
+    );
     private static final DateTimeFormatter RUN_LABEL_FMT =
             DateTimeFormatter.ofPattern("dd.MM HH:mm", Locale.ENGLISH);
     private static final Pattern LOG_TS_PATTERN = Pattern.compile(
@@ -107,13 +112,12 @@ public class RunDetailsView implements Serializable {
             DashboardFiltersProperties.Item itemConfig = resolveItemConfig(filter, item);
             this.runDir = resolveRunDir(itemConfig, run);
 
-            Path summaryPath = runDir.resolve("extent.summary.json");
-            this.summary = readSummary(summaryPath);
+            Path reportPath = SparkHtmlReportParser.requireReportHtml(runDir);
+            ParsedReport report = SparkHtmlReportParser.parseReport(reportPath);
+            this.summary = report.summary();
+            this.features = mapReportFeatures(report.features());
 
-            Path extentPath = runDir.resolve("extent.json");
-            this.features = parseExtentToModel(extentPath);
-
-            loadRunHistory(itemConfig, summaryPath);
+            loadRunHistory(itemConfig, reportPath);
             computeFeatureFlakyCounts();
 
             buildFeatureTree(this.features);
@@ -218,16 +222,9 @@ public class RunDetailsView implements Serializable {
         return dir;
     }
 
-    private ExtentSummary readSummary(Path p) throws Exception {
-        if (!Files.exists(p)) {
-            throw new IllegalArgumentException("Missing extent.summary.json: " + p);
-        }
-        return MAPPER.readValue(Files.readString(p), ExtentSummary.class);
-    }
-
     // ---------------------- run history / flaky ----------------------
 
-    private void loadRunHistory(DashboardFiltersProperties.Item itemConfig, Path summaryPath) {
+    private void loadRunHistory(DashboardFiltersProperties.Item itemConfig, Path reportPath) {
         recentRuns = List.of();
         runLabelsByFolder.clear();
         scenarioHistoryByKey.clear();
@@ -251,8 +248,8 @@ public class RunDetailsView implements Serializable {
 
         if (!hasCurrent && runDir != null && summary != null) {
             try {
-                long lm = Files.getLastModifiedTime(summaryPath).toMillis();
-                recent.add(0, new RunPicker.PickedRun(runDir, summaryPath, lm, summary));
+                long lm = Files.getLastModifiedTime(reportPath).toMillis();
+                recent.add(0, new RunPicker.PickedRun(runDir, reportPath, lm, summary));
             } catch (Exception ignored) {
                 // If we can't stat current run, keep the list as-is
             }
@@ -275,9 +272,8 @@ public class RunDetailsView implements Serializable {
         Map<String, List<RunStatus>> history = new HashMap<>();
         for (RunPicker.PickedRun pr : recent) {
             String runFolder = pr.runDir().getFileName().toString();
-            Path extent = pr.runDir().resolve("extent.json");
             try {
-                Map<String, String> statuses = RunHistoryAnalyzer.parseScenarioStatuses(extent);
+                Map<String, String> statuses = RunHistoryAnalyzer.parseScenarioStatuses(pr.reportPath());
                 for (Map.Entry<String, String> entry : statuses.entrySet()) {
                     history.computeIfAbsent(entry.getKey(), k -> new ArrayList<>())
                             .add(new RunStatus(runFolder, entry.getValue()));
@@ -349,33 +345,22 @@ public class RunDetailsView implements Serializable {
                 + " | Skip " + t.skip();
     }
 
-    // ---------------------- parsing: extent.json -> model ----------------------
+    // ---------------------- parsing: Spark HTML -> model ----------------------
 
-    private List<FeatureModel> parseExtentToModel(Path extentJson) throws Exception {
-        if (!Files.exists(extentJson)) {
-            throw new IllegalArgumentException("Missing extent.json: " + extentJson);
-        }
-
-        JsonNode rootArr = MAPPER.readTree(Files.readString(extentJson));
-        if (rootArr == null || !rootArr.isArray()) {
-            throw new IllegalStateException("extent.json root is not an array (expected Feature[]).");
-        }
+    private List<FeatureModel> mapReportFeatures(List<Feature> reportFeatures) {
+        if (reportFeatures == null || reportFeatures.isEmpty()) return List.of();
 
         List<FeatureModel> out = new ArrayList<>();
 
-        for (JsonNode f : rootArr) {
-            if (!f.isObject()) continue;
+        for (Feature f : reportFeatures) {
+            List<String> fullPath = f.path() == null ? List.of() : f.path();
+            if (fullPath.isEmpty()) {
+                fullPath = parseArrowPath(f.name());
+            }
 
-            String bddType = f.path("bddType").asText("");
-            if (!bddType.endsWith(".Feature")) continue;
-
-            String featureName = f.path("name").asText("").trim();
-            String featureDisplay = f.path("displayName").asText("").trim();
-            List<String> fullPath = readFeaturePath(f, featureName);
-
-            String featureTitle = !featureDisplay.isBlank()
-                    ? featureDisplay
-                    : (!fullPath.isEmpty() ? fullPath.get(fullPath.size() - 1) : featureName);
+            String featureTitle = !fullPath.isEmpty()
+                    ? fullPath.get(fullPath.size() - 1)
+                    : (f.name() == null ? "" : f.name().trim());
 
             if (fullPath.isEmpty() && !featureTitle.isBlank()) {
                 fullPath = List.of(featureTitle);
@@ -385,103 +370,51 @@ public class RunDetailsView implements Serializable {
                     ? List.of()
                     : fullPath.subList(0, fullPath.size() - 1);
 
-            String status = f.path("status").asText("");
-            LocalDateTime st = parseExtent(f.path("startTime").asText(""));
-            LocalDateTime et = parseExtent(f.path("endTime").asText(""));
+            LocalDateTime st = parseExtent(f.startTime());
+            LocalDateTime et = parseExtent(f.endTime());
             String durationText = formatDurationSafe(st, et);
-            List<String> featureTags = readStringArray(f.get("categorySet"));
+            List<String> featureTags = f.tags() == null ? List.of() : f.tags();
 
             List<ScenarioModel> scenarios = new ArrayList<>();
-            JsonNode scenArr = f.get("children");
-            if (scenArr != null && scenArr.isArray()) {
-                for (JsonNode s : scenArr) {
-                    if (!s.isObject()) continue;
-                    String sType = s.path("bddType").asText("");
-                    if (!sType.endsWith(".Scenario")) continue;
+            for (Scenario sc : f.scenarios()) {
+                List<StepModel> steps = new ArrayList<>();
+                for (Step stp : sc.steps()) {
+                    StepLabel lbl = splitStepLabelFromText(stp.text());
+                    List<LogEntry> logs = mapLogs(stp.logs());
+                    String stepDur = stepDurationText(logs, null, null);
 
-                    String sName = pickName(s);
-                    String sStatus = s.path("status").asText("");
-                    LocalDateTime sSt = parseExtent(s.path("startTime").asText(""));
-                    LocalDateTime sEt = parseExtent(s.path("endTime").asText(""));
-                    String sDur = formatDurationSafe(sSt, sEt);
+                    String stepMedia = logs.stream()
+                            .map(LogEntry::mediaPath)
+                            .filter(p -> p != null && !p.isBlank())
+                            .findFirst()
+                            .orElse(null);
 
-                    List<String> tags = readStringArray(s.get("categorySet"));
-
-                    List<StepModel> steps = new ArrayList<>();
-                    JsonNode stepArr = s.get("children");
-                    if (stepArr != null && stepArr.isArray()) {
-                        for (JsonNode step : stepArr) {
-                            if (!step.isObject()) continue;
-
-                            String stepType = step.path("bddType").asText("");
-                            String rawStepName = pickName(step);
-                            String stepDesc = step.path("description").asText("");
-
-                            StepLabel lbl = splitStepLabel(stepType, rawStepName);
-
-                            String stepStatus = step.path("status").asText("");
-                            LocalDateTime stepSt = parseExtent(step.path("startTime").asText(""));
-                            LocalDateTime stepEt = parseExtent(step.path("endTime").asText(""));
-                            List<LogEntry> logs = readLogs(step.get("logs"));
-                            String stepDur = stepDurationText(logs, stepSt, stepEt);
-
-                            // If any log has media, show as step "preview" too
-                            String stepMedia = logs.stream()
-                                    .map(LogEntry::mediaPath)
-                                    .filter(p -> p != null && !p.isBlank())
-                                    .findFirst()
-                                    .orElse(null);
-
-                            if (isAfterStep(stepDesc) && !steps.isEmpty()) {
-                                StepModel prev = steps.remove(steps.size() - 1);
-                                List<LogEntry> mergedLogs = new ArrayList<>(prev.logs());
-                                mergedLogs.addAll(logs);
-                                String mergedMedia = !isBlank(prev.screenshotPath()) ? prev.screenshotPath() : stepMedia;
-                                String mergedDur = stepDurationText(mergedLogs, null, null);
-                                if (isBlank(mergedDur) || "—".equals(mergedDur)) {
-                                    mergedDur = prev.durationText();
-                                }
-
-                                steps.add(new StepModel(
-                                        prev.id(),
-                                        prev.keyword(),
-                                        prev.text(),
-                                        prev.status(),
-                                        mergedDur,
-                                        mergedLogs,
-                                        mergedMedia
-                                ));
-                                continue;
-                            }
-
-                            steps.add(new StepModel(
-                                    UUID.randomUUID().toString(),
-                                    lbl.keyword(),
-                                    lbl.text(),
-                                    stepStatus,
-                                    stepDur,
-                                    logs,
-                                    stepMedia
-                            ));
-                        }
-                    }
-
-                    scenarios.add(new ScenarioModel(
+                    steps.add(new StepModel(
                             UUID.randomUUID().toString(),
-                            sName,
-                            sStatus,
-                            sDur,
-                            tags,
-                            steps
+                            lbl.keyword(),
+                            lbl.text(),
+                            stp.status(),
+                            stepDur,
+                            logs,
+                            stepMedia
                     ));
                 }
+
+                scenarios.add(new ScenarioModel(
+                        UUID.randomUUID().toString(),
+                        sc.name(),
+                        sc.status(),
+                        scenarioDurationFromSteps(steps),
+                        List.of(),
+                        steps
+                ));
             }
 
             out.add(new FeatureModel(
                     UUID.randomUUID().toString(),
                     groupsOnly,
                     featureTitle,
-                    status,
+                    f.status(),
                     durationText,
                     featureTags,
                     scenarios
@@ -491,20 +424,14 @@ public class RunDetailsView implements Serializable {
         return out;
     }
 
-    private static String pickName(JsonNode n) {
-        String dn = n.path("displayName").asText("");
-        if (dn != null && !dn.isBlank()) return dn;
-        return n.path("name").asText("");
-    }
-
     private static List<String> parseArrowPath(String s) {
         if (s == null) return List.of();
-        if (!s.contains("←")) {
+        if (!s.contains("\u2190")) {
             String t = s.trim();
             return t.isBlank() ? List.of() : List.of(t);
         }
 
-        String[] parts = s.split("\\s*←\\s*");
+        String[] parts = s.split("\\s*\\u2190\\s*");
         List<String> out = new ArrayList<>();
         for (String p : parts) {
             String t = p.trim();
@@ -512,94 +439,79 @@ public class RunDetailsView implements Serializable {
         }
         return out;
     }
-
-    private static List<String> readFeaturePath(JsonNode n, String fallbackName) {
-        JsonNode p = n.get("path");
-        if (p != null && p.isArray()) {
-            List<String> out = new ArrayList<>();
-            for (JsonNode x : p) {
-                if (x != null && x.isTextual()) {
-                    String s = x.asText("").trim();
-                    if (!s.isBlank()) out.add(s);
-                }
-            }
-            if (!out.isEmpty()) return out;
-        }
-        return parseArrowPath(fallbackName);
-    }
-
-    private static List<String> readStringArray(JsonNode arr) {
-        if (arr == null || !arr.isArray()) return List.of();
-        List<String> out = new ArrayList<>();
-        for (JsonNode x : arr) if (x.isTextual() && !x.asText().isBlank()) out.add(x.asText());
-        return out;
-    }
-
-    private static List<LogEntry> readLogs(JsonNode logsArr) {
-        if (logsArr == null || !logsArr.isArray()) return List.of();
+    private static List<LogEntry> mapLogs(List<Log> logs) {
+        if (logs == null || logs.isEmpty()) return List.of();
 
         List<LogEntry> out = new ArrayList<>();
-        for (JsonNode l : logsArr) {
-            String ts = l.path("timestamp").asText("");
-            String st = l.path("status").asText("");
-            String rawDetails = l.path("details").asText("");
+        for (Log l : logs) {
+            String rawDetails = l == null ? "" : (l.detailsHtml() == null ? "" : l.detailsHtml());
             long durationMillis = extractDurationMillis(rawDetails);
             String durationText = durationMillis >= 0 ? formatStepDuration(Duration.ofMillis(durationMillis)) : "";
             String details = stripExtentTimestamps(rawDetails);
+            String mediaPath = l == null ? null : l.mediaPath();
 
-            String mediaPath = null;
-            JsonNode media = l.get("media");
-            if (media != null && media.isObject()) {
-                String p = media.path("path").asText(null);
-                if (p != null && !p.isBlank()) mediaPath = p;
-            }
-
-            out.add(new LogEntry(ts, st, details, mediaPath, durationText, durationMillis));
+            out.add(new LogEntry("", "", details, mediaPath, durationText, durationMillis));
         }
         return out;
     }
 
-    // We want Hebrew keyword display (like Extent in your screenshot) BUT strip English prefixes from name (When/And/etc).
-    private static StepLabel splitStepLabel(String bddType, String rawName) {
-        KeywordPair kp = keywordPairFromBddType(bddType);
-        String text = rawName == null ? "" : rawName.trim();
+    private static String scenarioDurationFromSteps(List<StepModel> steps) {
+        Duration total = sumStepDurations(steps);
+        if (total == null) return "—";
+        return formatDuration(total);
+    }
 
-        // Strip English first (because JSON name usually starts with "When ...")
-        if (!kp.english().isBlank() && text.startsWith(kp.english() + " ")) {
-            text = text.substring(kp.english().length() + 1).trim();
-        } else if (!kp.hebrew().isBlank() && text.startsWith(kp.hebrew() + " ")) {
-            text = text.substring(kp.hebrew().length() + 1).trim();
-        } else {
-            // fallback: strip common English keywords if present
-            for (String k : List.of("Given", "When", "Then", "And", "But")) {
-                if (text.startsWith(k + " ")) {
-                    text = text.substring(k.length() + 1).trim();
-                    break;
-                }
+    private static Duration sumStepDurations(List<StepModel> steps) {
+        if (steps == null || steps.isEmpty()) return null;
+        long totalMillis = 0;
+        boolean found = false;
+        for (StepModel st : steps) {
+            Duration d = sumLogDurations(st.logs());
+            if (d != null) {
+                found = true;
+                totalMillis += d.toMillis();
+            }
+        }
+        return found ? Duration.ofMillis(totalMillis) : null;
+    }
+
+    // We want Hebrew keyword display (like Extent in your screenshot) BUT strip English prefixes from name (When/And/etc).
+    private static StepLabel splitStepLabelFromText(String rawText) {
+        String text = rawText == null ? "" : rawText.trim();
+        if (text.isBlank()) return new StepLabel("", "");
+
+        for (KeywordPair kp : KEYWORD_PAIRS) {
+            if (!kp.english().isBlank() && text.startsWith(kp.english() + " ")) {
+                return new StepLabel(kp.hebrewOrEnglish(), text.substring(kp.english().length() + 1).trim());
+            }
+            if (!kp.hebrew().isBlank() && text.startsWith(kp.hebrew() + " ")) {
+                return new StepLabel(kp.hebrewOrEnglish(), text.substring(kp.hebrew().length() + 1).trim());
             }
         }
 
-        String keyword = !kp.hebrew().isBlank() ? kp.hebrew() : kp.english();
-        if (keyword == null) keyword = "";
-        return new StepLabel(keyword, text);
+        for (String k : List.of("Given", "When", "Then", "And", "But")) {
+            if (text.startsWith(k + " ")) {
+                return new StepLabel(k, text.substring(k.length() + 1).trim());
+            }
+        }
+
+        return new StepLabel("", text);
     }
 
-    private static KeywordPair keywordPairFromBddType(String bddType) {
-        if (bddType == null) return new KeywordPair("", "");
-        if (bddType.endsWith(".Given")) return new KeywordPair("Given", "בהינתן");
-        if (bddType.endsWith(".When"))  return new KeywordPair("When",  "כאשר");
-        if (bddType.endsWith(".Then"))  return new KeywordPair("Then",  "אז");
-        if (bddType.endsWith(".And"))   return new KeywordPair("And",   "וגם");
-        if (bddType.endsWith(".But"))   return new KeywordPair("But",   "אבל");
-        if (bddType.endsWith(".Asterisk")) return new KeywordPair("*",  "צעד");
-        return new KeywordPair("", "");
-    }
+    private static final List<KeywordPair> KEYWORD_PAIRS = List.of(
+            new KeywordPair("Given", "בהינתן"),
+            new KeywordPair("When", "כאשר"),
+            new KeywordPair("Then", "אז"),
+            new KeywordPair("And", "וגם"),
+            new KeywordPair("But", "אבל"),
+            new KeywordPair("*", "צעד")
+    );
 
-    private static boolean isAfterStep(String description) {
-        return "AFTER_STEP".equalsIgnoreCase(String.valueOf(description).trim());
+    private record KeywordPair(String english, String hebrew) {
+        String hebrewOrEnglish() {
+            return !hebrew.isBlank() ? hebrew : english;
+        }
     }
-
-    private record KeywordPair(String english, String hebrew) {}
 
     // ---------------------- tree build ----------------------
 
@@ -857,11 +769,14 @@ public class RunDetailsView implements Serializable {
                 .replace('\u00A0', ' ')       // no-break space
                 .replaceAll("\\s+", " ")
                 .trim();
-        try {
-            return LocalDateTime.parse(s, EXTENT_TIME_FMT);
-        } catch (Exception ignored) {
-            return null;
+        for (DateTimeFormatter fmt : EXTENT_TIME_FMTS) {
+            try {
+                return LocalDateTime.parse(s, fmt);
+            } catch (Exception ignored) {
+                // try next
+            }
         }
+        return null;
     }
 
     private static String formatDurationSafe(LocalDateTime st, LocalDateTime et) {

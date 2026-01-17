@@ -18,22 +18,18 @@ public class RunModelCache {
 
     public RunModel getOrLoad(Path runDir) throws Exception {
         Path dir = runDir.toAbsolutePath().normalize();
-        Path extent = dir.resolve("extent.json");
+        Path reportHtml = SparkHtmlReportParser.requireReportHtml(dir);
 
-        if (!Files.exists(extent)) {
-            throw new IllegalArgumentException("Missing extent.json: " + extent);
-        }
-
-        FileTime lm = Files.getLastModifiedTime(extent);
+        FileTime lm = Files.getLastModifiedTime(reportHtml);
 
         Cached existing = cache.get(dir);
         if (existing != null && existing.lastModified.equals(lm)) {
             return existing.model;
         }
 
-        RunModel parsed = RunModelParser.parseExtentJson(extent);
+        RunModel parsed = RunModelParser.parseSparkHtml(reportHtml);
         cache.put(dir, new Cached(lm, parsed));
-        log.info("Parsed extent.json into RunModel: dir={}, features={}", dir, parsed.getFeatureCount());
+        log.info("Parsed Spark HTML into RunModel: dir={}, features={}", dir, parsed.getFeatureCount());
         return parsed;
     }
 

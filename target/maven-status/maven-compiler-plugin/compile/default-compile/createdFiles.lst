@@ -12,6 +12,7 @@ com/leumit/dashboard/view/RunDetailsView$StepLabel.class
 com/leumit/dashboard/config/DashboardFiltersProperties.class
 com/leumit/dashboard/view/RunDetailsView$FeatureModel.class
 com/leumit/dashboard/config/DashboardFiltersProperties$Filter.class
+com/leumit/dashboard/run/SparkHtmlReportParser.class
 com/leumit/dashboard/repo/RunPicker.class
 com/leumit/dashboard/repo/RunPicker$PickedRun.class
 com/leumit/dashboard/view/RunDetailsView.class
@@ -19,10 +20,12 @@ com/leumit/dashboard/ExtentDashboardApplication.class
 com/leumit/dashboard/view/RunDetailsView$RunOption.class
 com/leumit/dashboard/view/RunDetailsView$LogEntry.class
 com/leumit/dashboard/run/RunModel$Kind.class
+com/leumit/dashboard/run/SparkHtmlReportParser$Step.class
 com/leumit/dashboard/run/RunModel.class
 com/leumit/dashboard/run/RunModel$RunNode.class
 com/leumit/dashboard/charts/DoughnutModelFactory.class
 com/leumit/dashboard/run/RunHistoryAnalyzer.class
+com/leumit/dashboard/run/SparkHtmlReportParser$Log.class
 com/leumit/dashboard/view/RunDetailsView$ScenarioModel.class
 com/leumit/dashboard/view/RunDetailsView$ScenarioHistory.class
 com/leumit/dashboard/config/DashboardFiltersProperties$Item.class
@@ -32,11 +35,14 @@ com/leumit/dashboard/DocumentService.class
 com/leumit/dashboard/view/RunDetailsView$TreeItem.class
 com/leumit/dashboard/model/ExtentSummary$Totals.class
 com/leumit/dashboard/view/ChartJsJsonTweaks.class
+com/leumit/dashboard/run/SparkHtmlReportParser$ParsedReport.class
 com/leumit/dashboard/view/RunDetailsView$KeywordPair.class
 com/leumit/dashboard/view/RunDetailsView$TreeType.class
 com/leumit/dashboard/view/RunDetailsView$StepModel.class
+com/leumit/dashboard/run/SparkHtmlReportParser$Feature.class
 com/leumit/dashboard/model/ExtentSummary$FeatureSummary.class
 com/leumit/dashboard/IconView.class
 com/leumit/dashboard/run/RunHistoryAnalyzer$FlakySummary.class
 com/leumit/dashboard/model/ExtentSummary$Run.class
+com/leumit/dashboard/run/SparkHtmlReportParser$Scenario.class
 com/leumit/dashboard/run/RunModelCache$Cached.class

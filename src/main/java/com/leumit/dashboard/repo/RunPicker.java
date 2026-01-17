@@ -1,11 +1,12 @@
 package com.leumit.dashboard.repo;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.leumit.dashboard.model.ExtentSummary;
+import com.leumit.dashboard.run.SparkHtmlReportParser;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.List;
 import java.util.Optional;
@@ -14,9 +15,6 @@ import java.util.stream.Stream;
 
 @Service
 public class RunPicker {
-
-  private final ObjectMapper mapper = new ObjectMapper();
-
   public Optional<PickedRun> pickLatest(Path baseDir, Pattern dirNamePattern) throws IOException {
     return pickLatestRuns(baseDir, dirNamePattern, 1).stream().findFirst();
   }
@@ -33,8 +31,8 @@ public class RunPicker {
           .limit(limit)
           .map(c -> {
             try {
-              ExtentSummary summary = mapper.readValue(Files.readString(c.summaryPath()), ExtentSummary.class);
-              return new PickedRun(c.runDir(), c.summaryPath(), c.lastModified().toMillis(), summary);
+              ExtentSummary summary = SparkHtmlReportParser.parseSummary(c.reportPath());
+              return new PickedRun(c.runDir(), c.reportPath(), c.lastModified().toMillis(), summary);
             } catch (IOException e) {
               return null;
             }
@@ -45,17 +43,17 @@ public class RunPicker {
   }
 
   private Optional<Candidate> toCandidate(Path runDir) {
-    Path summary = runDir.resolve("extent.summary.json");
-    if (!Files.isRegularFile(summary)) return Optional.empty();
+    Optional<Path> report = SparkHtmlReportParser.findReportHtml(runDir);
+    if (report.isEmpty()) return Optional.empty();
     try {
-      FileTime ts = Files.getLastModifiedTime(summary);
-      return Optional.of(new Candidate(runDir, summary, ts));
+      FileTime ts = Files.getLastModifiedTime(report.get());
+      return Optional.of(new Candidate(runDir, report.get(), ts));
     } catch (IOException e) {
       return Optional.empty();
     }
   }
 
-  private record Candidate(Path runDir, Path summaryPath, FileTime lastModified) {}
+  private record Candidate(Path runDir, Path reportPath, FileTime lastModified) {}
 
-  public record PickedRun(Path runDir, Path summaryPath, long lastModifiedMillis, ExtentSummary summary) {}
+  public record PickedRun(Path runDir, Path reportPath, long lastModifiedMillis, ExtentSummary summary) {}
 }
