@@ -3,6 +3,7 @@ package com.leumit.dashboard.view;
 import com.leumit.dashboard.config.DashboardFiltersProperties;
 import com.leumit.dashboard.repo.RunPicker;
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import software.xdev.chartjs.model.charts.DoughnutChart;
@@ -24,6 +25,7 @@ import java.util.regex.Pattern;
 
 @Component("dashboardView")
 @Scope("view")
+@Slf4j
 public class DashboardView implements Serializable {
 
   private final DashboardFiltersProperties props;
@@ -105,15 +107,19 @@ public class DashboardView implements Serializable {
 
     if (f == null) return List.of();
 
+    long startNs = System.nanoTime();
     List<DashboardCard> out = new ArrayList<>();
 
     for (DashboardFiltersProperties.Item item : f.getItems()) {
+      long itemStartNs = System.nanoTime();
       try {
         Path base = Path.of(item.getBaseDir());
         Pattern p = Pattern.compile(item.getDirNameRegex());
 
         List<RunPicker.PickedRun> recent = runPicker.pickLatestRuns(base, p, HISTORY_LIMIT);
         if (recent.isEmpty()) {
+          long itemMs = (System.nanoTime() - itemStartNs) / 1_000_000;
+          log.info("DashboardView.loadCards item={} runs=0 totalMs={}", item.getTitle(), itemMs);
           continue;
         }
 
@@ -155,11 +161,18 @@ public class DashboardView implements Serializable {
                   runFolder
           ));
 
+          long itemMs = (System.nanoTime() - itemStartNs) / 1_000_000;
+          log.info("DashboardView.loadCards item={} runs={} totalMs={}", item.getTitle(), recent.size(), itemMs);
       } catch (Exception ignored) {
         // If an item is misconfigured (missing dir, regex, json), just skip it
+        long itemMs = (System.nanoTime() - itemStartNs) / 1_000_000;
+        log.info("DashboardView.loadCards item={} error totalMs={}", item.getTitle(), itemMs);
       }
     }
 
+    long totalMs = (System.nanoTime() - startNs) / 1_000_000;
+    log.info("DashboardView.loadCards filter={} items={} cards={} totalMs={}",
+            filterName, f.getItems().size(), out.size(), totalMs);
     return out;
   }
 

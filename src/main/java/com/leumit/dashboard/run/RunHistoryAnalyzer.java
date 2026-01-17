@@ -3,6 +3,9 @@ package com.leumit.dashboard.run;
 import com.leumit.dashboard.run.SparkHtmlReportParser.Feature;
 import com.leumit.dashboard.run.SparkHtmlReportParser.Scenario;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
@@ -11,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class RunHistoryAnalyzer {
 
+    private static final Logger log = LoggerFactory.getLogger(RunHistoryAnalyzer.class);
     private static final String PATH_SEP = " / ";
     private static final String KEY_SEP = " :: ";
     private static final Map<Path, CachedStatuses> STATUS_CACHE = new ConcurrentHashMap<>();
@@ -59,9 +63,12 @@ public final class RunHistoryAnalyzer {
         FileTime lm = Files.getLastModifiedTime(cacheKey);
         CachedStatuses cached = STATUS_CACHE.get(cacheKey);
         if (cached != null && cached.lastModified.equals(lm)) {
+            log.info("RunHistoryAnalyzer cache hit report={} scenarios={}",
+                    cacheKey.getFileName(), cached.statuses.size());
             return cached.statuses;
         }
 
+        long startNs = System.nanoTime();
         Map<String, String> out = new HashMap<>();
 
         List<Feature> features = SparkHtmlReportParser.parseFeatures(reportHtml);
@@ -95,6 +102,9 @@ public final class RunHistoryAnalyzer {
 
         Map<String, String> frozen = Collections.unmodifiableMap(out);
         STATUS_CACHE.put(cacheKey, new CachedStatuses(lm, frozen));
+        long totalMs = (System.nanoTime() - startNs) / 1_000_000;
+        log.info("RunHistoryAnalyzer parsed report={} scenarios={} totalMs={}",
+                cacheKey.getFileName(), frozen.size(), totalMs);
         return frozen;
     }
 

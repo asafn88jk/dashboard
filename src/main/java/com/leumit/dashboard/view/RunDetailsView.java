@@ -106,6 +106,7 @@ public class RunDetailsView implements Serializable {
         loadedKey = key;
 
         try {
+            long totalStartNs = System.nanoTime();
             this.error = null;
             if (isBlank(filter) || isBlank(item) || isBlank(run)) {
                 throw new IllegalArgumentException("Missing URL params: filter/item/run");
@@ -115,7 +116,9 @@ public class RunDetailsView implements Serializable {
             this.runDir = resolveRunDir(itemConfig, run);
 
             Path reportPath = SparkHtmlReportParser.requireReportHtml(runDir);
+            long reportStartNs = System.nanoTime();
             ParsedReport report = SparkHtmlReportParser.parseReport(reportPath);
+            long reportMs = (System.nanoTime() - reportStartNs) / 1_000_000;
             this.summary = report.summary();
             LocalDate reportDate = SparkHtmlReportParser.resolveReportDate(this.summary, reportPath).orElse(null);
             if (reportDate != null && reportDate.isBefore(ReportCutoff.CUTOFF_DATE)) {
@@ -123,10 +126,16 @@ public class RunDetailsView implements Serializable {
             }
             this.features = mapReportFeatures(report.features());
 
+            long historyStartNs = System.nanoTime();
             loadRunHistory(itemConfig, reportPath);
+            long historyMs = (System.nanoTime() - historyStartNs) / 1_000_000;
+            long flakyStartNs = System.nanoTime();
             computeFeatureFlakyCounts();
+            long flakyMs = (System.nanoTime() - flakyStartNs) / 1_000_000;
 
+            long treeStartNs = System.nanoTime();
             buildFeatureTree(this.features);
+            long treeMs = (System.nanoTime() - treeStartNs) / 1_000_000;
 
             // default selection: first feature
             if (!features.isEmpty()) {
@@ -141,6 +150,9 @@ public class RunDetailsView implements Serializable {
 
             log.info("RunDetails loaded: filter={}, item={}, run={}, dir={}, features={}",
                     filter, item, run, runDir, features.size());
+            long totalMs = (System.nanoTime() - totalStartNs) / 1_000_000;
+            log.info("RunDetails timings: reportMs={} historyMs={} flakyMs={} treeMs={} totalMs={}",
+                    reportMs, historyMs, flakyMs, treeMs, totalMs);
 
         } catch (Exception e) {
             this.error = msg(e);
