@@ -46,8 +46,6 @@ public class DashboardView implements Serializable {
           DateTimeFormatter.ofPattern("MM.dd.yyyy h:mm:ss a", Locale.ENGLISH),
           DateTimeFormatter.ofPattern("M.d.yyyy h:mm:ss a", Locale.ENGLISH)
   );
-  private static final int HISTORY_LIMIT = 7;
-
   private static LocalDateTime parseExtentTime(String raw) {
     if (raw == null || raw.isBlank()) return null;
 
@@ -116,14 +114,14 @@ public class DashboardView implements Serializable {
         Path base = Path.of(item.getBaseDir());
         Pattern p = Pattern.compile(item.getDirNameRegex());
 
-        List<RunPicker.PickedRun> recent = runPicker.pickLatestRuns(base, p, HISTORY_LIMIT);
-        if (recent.isEmpty()) {
+        Optional<RunPicker.PickedRun> pickedOpt = runPicker.pickLatestFast(base, p);
+        if (pickedOpt.isEmpty()) {
           long itemMs = (System.nanoTime() - itemStartNs) / 1_000_000;
           log.info("DashboardView.loadCards item={} runs=0 totalMs={}", item.getTitle(), itemMs);
           continue;
         }
 
-        RunPicker.PickedRun picked = recent.get(0);
+        RunPicker.PickedRun picked = pickedOpt.get();
           var totals = picked.summary().totals();
 
           int total = Math.max(1, totals.total());
@@ -162,7 +160,7 @@ public class DashboardView implements Serializable {
           ));
 
           long itemMs = (System.nanoTime() - itemStartNs) / 1_000_000;
-          log.info("DashboardView.loadCards item={} runs={} totalMs={}", item.getTitle(), recent.size(), itemMs);
+          log.info("DashboardView.loadCards item={} runs=1 totalMs={}", item.getTitle(), itemMs);
       } catch (Exception ignored) {
         // If an item is misconfigured (missing dir, regex, json), just skip it
         long itemMs = (System.nanoTime() - itemStartNs) / 1_000_000;

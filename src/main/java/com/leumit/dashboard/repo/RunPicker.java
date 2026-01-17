@@ -26,7 +26,7 @@ import java.util.stream.Stream;
 @Slf4j
 public class RunPicker {
   public Optional<PickedRun> pickLatest(Path baseDir, Pattern dirNamePattern) throws IOException {
-    return pickLatestRuns(baseDir, dirNamePattern, 1).stream().findFirst();
+    return pickLatestFast(baseDir, dirNamePattern);
   }
 
   public List<PickedRun> pickLatestRuns(Path baseDir, Pattern dirNamePattern, int limit) throws IOException {
@@ -76,6 +76,58 @@ public class RunPicker {
     log.info("RunPicker.pickLatestRuns baseDir={} limit={} matchedDirs={} candidates={} selected={} scanMs={} summaryMs={} totalMs={}",
             baseDir, limit, matchedDirs[0], candidates[0], out.size(), scanMs, summaryMs, totalMs);
     return out;
+  }
+
+  public Optional<PickedRun> pickLatestFast(Path baseDir, Pattern dirNamePattern) throws IOException {
+    if (!Files.isDirectory(baseDir)) return Optional.empty();
+
+    long startNs = System.nanoTime();
+    Candidate[] best = new Candidate[1];
+    int[] matchedDirs = new int[1];
+    int[] candidates = new int[1];
+
+    long scanStartNs = System.nanoTime();
+    try (Stream<Path> s = Files.list(baseDir)) {
+      s.filter(Files::isDirectory)
+          .filter(p -> {
+            boolean matches = dirNamePattern.matcher(p.getFileName().toString()).matches();
+            if (matches) matchedDirs[0]++;
+            return matches;
+          })
+          .map(this::toCandidate)
+          .flatMap(Optional::stream)
+          .forEach(c -> {
+            candidates[0]++;
+            if (best[0] == null || c.lastModified().compareTo(best[0].lastModified()) > 0) {
+              best[0] = c;
+            }
+          });
+    }
+    long scanMs = (System.nanoTime() - scanStartNs) / 1_000_000;
+
+    Candidate chosen = best[0];
+    if (chosen == null) {
+      long totalMs = (System.nanoTime() - startNs) / 1_000_000;
+      log.info("RunPicker.pickLatestFast baseDir={} matchedDirs={} candidates=0 scanMs={} totalMs={}",
+              baseDir, matchedDirs[0], scanMs, totalMs);
+      return Optional.empty();
+    }
+
+    long summaryStartNs = System.nanoTime();
+    try {
+      ExtentSummary summary = SparkHtmlReportParser.parseSummary(chosen.reportPath());
+      if (summary == null) return Optional.empty();
+      if (SparkHtmlReportParser.isBeforeCutoff(summary, chosen.reportPath(), ReportCutoff.CUTOFF_DATE)) {
+        return Optional.empty();
+      }
+      long summaryMs = (System.nanoTime() - summaryStartNs) / 1_000_000;
+      long totalMs = (System.nanoTime() - startNs) / 1_000_000;
+      log.info("RunPicker.pickLatestFast baseDir={} matchedDirs={} candidates={} scanMs={} summaryMs={} totalMs={}",
+              baseDir, matchedDirs[0], candidates[0], scanMs, summaryMs, totalMs);
+      return Optional.of(new PickedRun(chosen.runDir(), chosen.reportPath(), chosen.lastModified().toMillis(), summary));
+    } catch (IOException ignored) {
+      return Optional.empty();
+    }
   }
 
   private Optional<Candidate> toCandidate(Path runDir) {
