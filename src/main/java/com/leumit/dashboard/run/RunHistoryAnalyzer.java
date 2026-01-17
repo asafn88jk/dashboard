@@ -5,14 +5,19 @@ import com.leumit.dashboard.run.SparkHtmlReportParser.Scenario;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public final class RunHistoryAnalyzer {
 
     private static final String PATH_SEP = " / ";
     private static final String KEY_SEP = " :: ";
+    private static final Map<Path, CachedStatuses> STATUS_CACHE = new ConcurrentHashMap<>();
 
     private RunHistoryAnalyzer() {}
+
+    private record CachedStatuses(FileTime lastModified, Map<String, String> statuses) {}
 
     public record FlakySummary(int flakyScenarios, int totalScenarios) {}
 
@@ -50,6 +55,13 @@ public final class RunHistoryAnalyzer {
             throw new IllegalArgumentException("Missing Spark HTML report: " + reportHtml);
         }
 
+        Path key = reportHtml.toAbsolutePath().normalize();
+        FileTime lm = Files.getLastModifiedTime(key);
+        CachedStatuses cached = STATUS_CACHE.get(key);
+        if (cached != null && cached.lastModified.equals(lm)) {
+            return cached.statuses;
+        }
+
         Map<String, String> out = new HashMap<>();
 
         List<Feature> features = SparkHtmlReportParser.parseFeatures(reportHtml);
@@ -81,7 +93,9 @@ public final class RunHistoryAnalyzer {
             }
         }
 
-        return out;
+        Map<String, String> frozen = Collections.unmodifiableMap(out);
+        STATUS_CACHE.put(key, new CachedStatuses(lm, frozen));
+        return frozen;
     }
 
     public static boolean isFlaky(Collection<String> statuses) {

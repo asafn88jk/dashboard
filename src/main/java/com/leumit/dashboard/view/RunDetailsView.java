@@ -52,7 +52,7 @@ public class RunDetailsView implements Serializable {
             "<p[^>]*class=['\"]localtime['\"][^>]*>.*?</p>",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL
     );
-    private static final int HISTORY_LIMIT = 7;
+    private static final int HISTORY_LIMIT = 4;
 
     private final DashboardFiltersProperties props;
     private final RunPicker runPicker;

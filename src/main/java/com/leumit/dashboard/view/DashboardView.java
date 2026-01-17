@@ -2,8 +2,6 @@ package com.leumit.dashboard.view;
 
 import com.leumit.dashboard.config.DashboardFiltersProperties;
 import com.leumit.dashboard.repo.RunPicker;
-import com.leumit.dashboard.run.RunHistoryAnalyzer;
-import com.leumit.dashboard.run.RunHistoryAnalyzer.FlakySummary;
 import jakarta.annotation.PostConstruct;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
@@ -120,10 +118,6 @@ public class DashboardView implements Serializable {
         }
 
         RunPicker.PickedRun picked = recent.get(0);
-        FlakySummary flakySummary = RunHistoryAnalyzer.computeFlakySummary(
-                recent.stream().map(RunPicker.PickedRun::runDir).toList()
-        );
-
           var totals = picked.summary().totals();
 
           int total = Math.max(1, totals.total());
@@ -158,9 +152,7 @@ public class DashboardView implements Serializable {
                   json,
                   filterName,
                   item.getTitle(),
-                  runFolder,
-                  flakySummary.flakyScenarios(),
-                  flakySummary.totalScenarios()
+                  runFolder
           ));
 
       } catch (Exception ignored) {
