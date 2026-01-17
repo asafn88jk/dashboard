@@ -8,6 +8,12 @@ import org.jsoup.nodes.Element;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -19,6 +25,12 @@ public final class SparkHtmlReportParser {
             Pattern.compile("var\\s+statusGroup\\s*=\\s*\\{(.*?)\\};", Pattern.DOTALL);
     private static final Pattern STATUS_GROUP_ENTRY =
             Pattern.compile("(\\w+)\\s*:\\s*(\\d+)");
+    private static final List<DateTimeFormatter> REPORT_TIME_FMTS = List.of(
+            DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm:ss a", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("MMM d, yyyy h:mm:ss a", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("MM.dd.yyyy h:mm:ss a", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("M.d.yyyy h:mm:ss a", Locale.ENGLISH)
+    );
 
     private SparkHtmlReportParser() {}
 
@@ -85,6 +97,55 @@ public final class SparkHtmlReportParser {
         List<Feature> features = parseFeatures(doc);
         ExtentSummary summary = parseSummary(doc, html, features);
         return new ParsedReport(summary, features);
+    }
+
+    public static Optional<LocalDateTime> parseReportDateTime(String raw) {
+        if (raw == null || raw.isBlank()) return Optional.empty();
+        String s = raw.replace('\u202F', ' ')
+                .replace('\u00A0', ' ')
+                .replaceAll("\\s+", " ")
+                .trim();
+        for (DateTimeFormatter fmt : REPORT_TIME_FMTS) {
+            try {
+                return Optional.of(LocalDateTime.parse(s, fmt));
+            } catch (Exception ignored) {
+                // try next
+            }
+        }
+        return Optional.empty();
+    }
+
+    public static Optional<LocalDate> resolveReportDate(ExtentSummary summary, Path reportHtml) {
+        if (summary != null && summary.run() != null) {
+            Optional<LocalDateTime> start = parseReportDateTime(summary.run().startTime());
+            if (start.isPresent()) {
+                return Optional.of(start.get().toLocalDate());
+            }
+
+            Optional<LocalDateTime> end = parseReportDateTime(summary.run().endTime());
+            if (end.isPresent()) {
+                return Optional.of(end.get().toLocalDate());
+            }
+        }
+
+        if (reportHtml != null) {
+            try {
+                FileTime ts = Files.getLastModifiedTime(reportHtml);
+                Instant instant = ts.toInstant();
+                LocalDate date = LocalDateTime.ofInstant(instant, ZoneId.systemDefault()).toLocalDate();
+                return Optional.of(date);
+            } catch (IOException ignored) {
+                // fall through
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    public static boolean isBeforeCutoff(ExtentSummary summary, Path reportHtml, LocalDate cutoff) {
+        if (cutoff == null) return false;
+        Optional<LocalDate> reportDate = resolveReportDate(summary, reportHtml);
+        return reportDate.isPresent() && reportDate.get().isBefore(cutoff);
     }
 
     private static ExtentSummary parseSummary(Document doc, String html, List<Feature> features) {

@@ -4,6 +4,7 @@ import com.leumit.dashboard.config.DashboardFiltersProperties;
 import com.leumit.dashboard.model.ExtentSummary;
 import com.leumit.dashboard.repo.RunPicker;
 import com.leumit.dashboard.run.RunHistoryAnalyzer;
+import com.leumit.dashboard.run.ReportCutoff;
 import com.leumit.dashboard.run.SparkHtmlReportParser;
 import com.leumit.dashboard.run.SparkHtmlReportParser.Feature;
 import com.leumit.dashboard.run.SparkHtmlReportParser.Log;
@@ -23,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -115,6 +117,10 @@ public class RunDetailsView implements Serializable {
             Path reportPath = SparkHtmlReportParser.requireReportHtml(runDir);
             ParsedReport report = SparkHtmlReportParser.parseReport(reportPath);
             this.summary = report.summary();
+            LocalDate reportDate = SparkHtmlReportParser.resolveReportDate(this.summary, reportPath).orElse(null);
+            if (reportDate != null && reportDate.isBefore(ReportCutoff.CUTOFF_DATE)) {
+                throw new IllegalArgumentException("Report before cutoff date: " + reportDate);
+            }
             this.features = mapReportFeatures(report.features());
 
             loadRunHistory(itemConfig, reportPath);

@@ -1,6 +1,7 @@
 package com.leumit.dashboard.repo;
 
 import com.leumit.dashboard.model.ExtentSummary;
+import com.leumit.dashboard.run.ReportCutoff;
 import com.leumit.dashboard.run.SparkHtmlReportParser;
 import org.springframework.stereotype.Service;
 
@@ -25,19 +26,11 @@ public class RunPicker {
     try (Stream<Path> s = Files.list(baseDir)) {
       return s.filter(Files::isDirectory)
           .filter(p -> dirNamePattern.matcher(p.getFileName().toString()).matches())
-          .map(runDir -> toCandidate(runDir))
+          .map(this::toCandidate)
           .flatMap(Optional::stream)
           .sorted((a, b) -> b.lastModified().compareTo(a.lastModified()))
           .limit(limit)
-          .map(c -> {
-            try {
-              ExtentSummary summary = SparkHtmlReportParser.parseSummary(c.reportPath());
-              return new PickedRun(c.runDir(), c.reportPath(), c.lastModified().toMillis(), summary);
-            } catch (IOException e) {
-              return null;
-            }
-          })
-          .filter(r -> r != null)
+          .map(c -> new PickedRun(c.runDir(), c.reportPath(), c.lastModified().toMillis(), c.summary()))
           .toList();
     }
   }
@@ -45,15 +38,21 @@ public class RunPicker {
   private Optional<Candidate> toCandidate(Path runDir) {
     Optional<Path> report = SparkHtmlReportParser.findReportHtml(runDir);
     if (report.isEmpty()) return Optional.empty();
+    Path reportPath = report.get();
     try {
-      FileTime ts = Files.getLastModifiedTime(report.get());
-      return Optional.of(new Candidate(runDir, report.get(), ts));
+      FileTime ts = Files.getLastModifiedTime(reportPath);
+      ExtentSummary summary = SparkHtmlReportParser.parseSummary(reportPath);
+      if (summary == null) return Optional.empty();
+      if (SparkHtmlReportParser.isBeforeCutoff(summary, reportPath, ReportCutoff.CUTOFF_DATE)) {
+        return Optional.empty();
+      }
+      return Optional.of(new Candidate(runDir, reportPath, ts, summary));
     } catch (IOException e) {
       return Optional.empty();
     }
   }
 
-  private record Candidate(Path runDir, Path reportPath, FileTime lastModified) {}
+  private record Candidate(Path runDir, Path reportPath, FileTime lastModified, ExtentSummary summary) {}
 
   public record PickedRun(Path runDir, Path reportPath, long lastModifiedMillis, ExtentSummary summary) {}
 }
