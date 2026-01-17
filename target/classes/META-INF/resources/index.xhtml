@@ -78,9 +78,6 @@
 
                         <div class="card-meta">
                             <div class="meta-line">משך ריצה #{card.duration}</div>
-                            <ui:fragment rendered="#{card.totalScenarios gt 0}">
-                                <div class="meta-line">Flaky (7): #{card.flakyScenarios}/#{card.totalScenarios}</div>
-                            </ui:fragment>
                             <div class="meta-line">
                                 <h:outputText value="#{card.startedAt}">
                                     <f:convertDateTime type="localDateTime" pattern="HH:mm dd.MM.yyyy"/>

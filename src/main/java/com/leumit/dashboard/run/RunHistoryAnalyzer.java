@@ -55,9 +55,9 @@ public final class RunHistoryAnalyzer {
             throw new IllegalArgumentException("Missing Spark HTML report: " + reportHtml);
         }
 
-        Path key = reportHtml.toAbsolutePath().normalize();
-        FileTime lm = Files.getLastModifiedTime(key);
-        CachedStatuses cached = STATUS_CACHE.get(key);
+        Path cacheKey = reportHtml.toAbsolutePath().normalize();
+        FileTime lm = Files.getLastModifiedTime(cacheKey);
+        CachedStatuses cached = STATUS_CACHE.get(cacheKey);
         if (cached != null && cached.lastModified.equals(lm)) {
             return cached.statuses;
         }
@@ -86,15 +86,15 @@ public final class RunHistoryAnalyzer {
             for (Scenario s : f.scenarios()) {
                 String sName = clean(s.name());
                 String sStatus = s.status();
-                String key = scenarioKey(normalizedPath, sName);
-                if (!key.isBlank()) {
-                    out.put(key, sStatus);
+                String scenarioKey = scenarioKey(normalizedPath, sName);
+                if (!scenarioKey.isBlank()) {
+                    out.put(scenarioKey, sStatus);
                 }
             }
         }
 
         Map<String, String> frozen = Collections.unmodifiableMap(out);
-        STATUS_CACHE.put(key, new CachedStatuses(lm, frozen));
+        STATUS_CACHE.put(cacheKey, new CachedStatuses(lm, frozen));
         return frozen;
     }
 

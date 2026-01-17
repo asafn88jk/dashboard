@@ -1,6 +1,7 @@
 com/leumit/dashboard/view/DashboardView.class
 com/leumit/dashboard/Document.class
 com/leumit/dashboard/run/RunModel$LogEntry.class
+com/leumit/dashboard/run/ReportCutoff.class
 com/leumit/dashboard/config/DashboardConfig.class
 com/leumit/dashboard/run/RunModelCache.class
 com/leumit/dashboard/repo/RunPicker$Candidate.class
@@ -18,6 +19,7 @@ com/leumit/dashboard/repo/RunPicker$PickedRun.class
 com/leumit/dashboard/view/RunDetailsView.class
 com/leumit/dashboard/ExtentDashboardApplication.class
 com/leumit/dashboard/view/RunDetailsView$RunOption.class
+com/leumit/dashboard/run/RunHistoryAnalyzer$CachedStatuses.class
 com/leumit/dashboard/view/RunDetailsView$LogEntry.class
 com/leumit/dashboard/run/RunModel$Kind.class
 com/leumit/dashboard/run/SparkHtmlReportParser$Step.class
