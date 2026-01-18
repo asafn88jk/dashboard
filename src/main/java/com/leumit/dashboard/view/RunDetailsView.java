@@ -348,7 +348,22 @@ public class RunDetailsView implements Serializable {
             fullPath.addAll(feature.groupPath());
         }
         fullPath.add(feature.title());
-        return RunHistoryAnalyzer.scenarioKey(fullPath, scenario.name());
+        String scenarioName = scenario.name();
+        if (feature.scenarios() != null) {
+            int totalSame = 0;
+            int ordinal = 0;
+            for (ScenarioModel sc : feature.scenarios()) {
+                if (!Objects.equals(sc.name(), scenarioName)) continue;
+                totalSame++;
+                if (Objects.equals(sc.id(), scenario.id())) {
+                    ordinal = totalSame;
+                }
+            }
+            if (totalSame > 1 && ordinal > 0) {
+                scenarioName = scenarioName + " #" + ordinal;
+            }
+        }
+        return RunHistoryAnalyzer.scenarioKey(fullPath, scenarioName);
     }
 
     private String formatRunLabel(RunPicker.PickedRun pr) {

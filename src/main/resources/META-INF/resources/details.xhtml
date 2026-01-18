@@ -30,7 +30,7 @@
         }
         /* -------- Extent-like typography -------- */
         html, body, .ui-widget {
-            font-family: "Source Sans Pro","Open Sans","Segoe UI",Roboto,Arial,sans-serif !important;
+            font-family: "Open Sans","Source Sans Pro","Segoe UI",Roboto,Arial,sans-serif !important;
             font-size: 13px;
         }
 
@@ -117,7 +117,7 @@
         .grid {
             margin-top: 12px;
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 380px;
+            grid-template-columns: minmax(0, 1fr) 430px;
             gap: 10px;
             direction: ltr; /* layout direction */
             align-items: stretch;
@@ -232,7 +232,7 @@
             align-items: center;
             gap: 6px;
             width: 100%;
-            padding: 2px 2px;
+            padding: 1px 2px;
             line-height: 1.2;
         }
 
@@ -270,7 +270,12 @@
         }
         .featTree .ui-treenode-children {
             margin: 0;
-            padding: 0 6px 0 0;
+            padding: 0 4px 0 0;
+        }
+        .featTree ul,
+        .featTree li.ui-treenode {
+            margin: 0;
+            padding: 0;
         }
         .featTree .ui-treenode-toggler,
         .featTree .ui-tree-toggler,
@@ -306,15 +311,16 @@
         }
         .treeFiltersRow {
             display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
+            flex-wrap: nowrap;
+            gap: 6px;
             align-items: center;
-            justify-content: space-between;
+            justify-content: flex-start;
         }
         .statusFilters {
             display: flex;
             flex-wrap: nowrap;
             gap: 6px;
+            flex: 0 0 auto;
         }
         .filterBtn {
             border: 1px solid #e5e7eb;
@@ -348,11 +354,12 @@
             padding: 4px 8px;
             font-size: 12px;
             background: #fff;
-            min-width: 160px;
+            min-width: 120px;
         }
         .treeControls {
             display: flex;
             gap: 6px;
+            flex: 0 0 auto;
         }
         .treeControlBtn {
             border: 1px solid #e5e7eb;
@@ -549,6 +556,15 @@
         .logBody {
             min-width: 0;
             direction: rtl;
+            text-align: right;
+        }
+        .logBody * {
+            text-align: right;
+        }
+        .logBody table,
+        .logBody th,
+        .logBody td {
+            text-align: right;
         }
 
         .mediaImg {
@@ -691,6 +707,13 @@
                                             #{runDetailsView.statusBadgeLabel(runDetailsView.selectedFeature.status)}
                                         </span>
                                         <div class="paneTitle">#{runDetailsView.selectedFeatureFullTitle}</div>
+                                        <ui:fragment rendered="#{not empty runDetailsView.selectedFeature.tags}">
+                                            <div class="tags inline">
+                                                <ui:repeat value="#{runDetailsView.selectedFeature.tags}" var="tg">
+                                                    <span class="tag">#{tg}</span>
+                                                </ui:repeat>
+                                            </div>
+                                        </ui:fragment>
                                     </div>
                                     <div class="featureMetaBadges">
                                         <span class="pill metaBadge">
@@ -709,13 +732,6 @@
                                         </ui:fragment>
                                     </div>
                                 </div>
-                                <ui:fragment rendered="#{not empty runDetailsView.selectedFeature.tags}">
-                                    <div class="tags">
-                                        <ui:repeat value="#{runDetailsView.selectedFeature.tags}" var="tg">
-                                            <span class="tag">#{tg}</span>
-                                        </ui:repeat>
-                                    </div>
-                                </ui:fragment>
                             </div>
                         </div>
 
@@ -1120,3 +1136,13 @@
     </script>
 </h:body>
 </html>
+        .tags.inline {
+            display: inline-flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin: 0 6px 0 0;
+        }
+        .tags.inline .tag {
+            font-size: 10px;
+            padding: 1px 6px;
+        }

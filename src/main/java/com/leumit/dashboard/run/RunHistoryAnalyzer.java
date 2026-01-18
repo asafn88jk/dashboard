@@ -90,10 +90,20 @@ public final class RunHistoryAnalyzer {
                 normalizedPath.set(normalizedPath.size() - 1, featureTitle);
             }
 
+            Map<String, Integer> nameCounts = new HashMap<>();
             for (Scenario s : f.scenarios()) {
                 String sName = clean(s.name());
+                nameCounts.merge(sName, 1, Integer::sum);
+            }
+
+            Map<String, Integer> nameSeen = new HashMap<>();
+            for (Scenario s : f.scenarios()) {
+                String sName = clean(s.name());
+                int ordinal = nameSeen.merge(sName, 1, Integer::sum);
+                boolean duplicate = nameCounts.getOrDefault(sName, 0) > 1;
+                String keyName = duplicate ? (sName + " #" + ordinal) : sName;
                 String sStatus = s.status();
-                String scenarioKey = scenarioKey(normalizedPath, sName);
+                String scenarioKey = scenarioKey(normalizedPath, keyName);
                 if (!scenarioKey.isBlank()) {
                     out.put(scenarioKey, sStatus);
                 }
