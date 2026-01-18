@@ -108,6 +108,12 @@ public final class SparkHtmlReportParser {
         return parseFeatures(doc);
     }
 
+    public static List<Feature> parseFeaturesNoLogs(Path reportHtml) throws IOException {
+        String html = Files.readString(reportHtml);
+        Document doc = Jsoup.parse(html);
+        return parseFeatures(doc, false);
+    }
+
     public static ParsedReport parseReport(Path reportHtml) throws IOException {
         String html = Files.readString(reportHtml);
         Document doc = Jsoup.parse(html);
@@ -179,6 +185,10 @@ public final class SparkHtmlReportParser {
     }
 
     private static List<Feature> parseFeatures(Document doc) {
+        return parseFeatures(doc, true);
+    }
+
+    private static List<Feature> parseFeatures(Document doc, boolean includeLogs) {
         List<Feature> features = new ArrayList<>();
 
         Element testView = doc.selectFirst("div.test-wrapper.view.test-view");
@@ -203,7 +213,7 @@ public final class SparkHtmlReportParser {
             String end = textOf(detailHead == null ? null : detailHead.selectFirst("span.badge-danger"));
 
             List<String> path = parseArrowPath(name);
-            List<Scenario> scenarios = parseScenarios(featureEl);
+            List<Scenario> scenarios = parseScenarios(featureEl, includeLogs);
 
             features.add(new Feature(name, path, status, tags, start, end, scenarios));
         }
@@ -211,7 +221,7 @@ public final class SparkHtmlReportParser {
         return features;
     }
 
-    private static List<Scenario> parseScenarios(Element featureEl) {
+    private static List<Scenario> parseScenarios(Element featureEl, boolean includeLogs) {
         Element accordion = featureEl.selectFirst("div.accordion");
         if (accordion == null) return List.of();
 
@@ -219,9 +229,9 @@ public final class SparkHtmlReportParser {
         for (Element card : accordion.select("> div.card")) {
             Element outline = card.selectFirst("> div.scenario_outline");
             if (outline != null) {
-                List<Scenario> outlineScenarios = parseScenarioOutline(outline);
+                List<Scenario> outlineScenarios = parseScenarioOutline(outline, includeLogs);
                 if (outlineScenarios.isEmpty()) {
-                    Scenario sc = parseScenarioCard(card);
+                    Scenario sc = parseScenarioCard(card, includeLogs);
                     if (sc != null) scenarios.add(sc);
                 } else {
                     scenarios.addAll(outlineScenarios);
@@ -229,13 +239,13 @@ public final class SparkHtmlReportParser {
                 continue;
             }
 
-            Scenario sc = parseScenarioCard(card);
+            Scenario sc = parseScenarioCard(card, includeLogs);
             if (sc != null) scenarios.add(sc);
         }
         return scenarios;
     }
 
-    private static List<Scenario> parseScenarioOutline(Element outline) {
+    private static List<Scenario> parseScenarioOutline(Element outline, boolean includeLogs) {
         List<Scenario> scenarios = new ArrayList<>();
         for (Element body : outline.select("div.card-body.l1")) {
             Element node = body.selectFirst("div.card-header .node");
@@ -248,12 +258,12 @@ public final class SparkHtmlReportParser {
                     body.selectFirst("div.card-body")
             );
 
-            scenarios.add(new Scenario(name, status, parseSteps(stepsContainer)));
+            scenarios.add(new Scenario(name, status, parseSteps(stepsContainer, includeLogs)));
         }
         return scenarios;
     }
 
-    private static Scenario parseScenarioCard(Element card) {
+    private static Scenario parseScenarioCard(Element card, boolean includeLogs) {
         Element node = card.selectFirst("> div.card-header .node");
         if (node == null) return null;
 
@@ -267,10 +277,10 @@ public final class SparkHtmlReportParser {
                 card.selectFirst("div.card-body")
         );
 
-        return new Scenario(name, status, parseSteps(stepsContainer));
+        return new Scenario(name, status, parseSteps(stepsContainer, includeLogs));
     }
 
-    private static List<Step> parseSteps(Element container) {
+    private static List<Step> parseSteps(Element container, boolean includeLogs) {
         if (container == null) return List.of();
         List<Step> steps = new ArrayList<>();
 
@@ -283,17 +293,20 @@ public final class SparkHtmlReportParser {
                 text = child.ownText().trim();
             }
 
-            List<Log> logs = parseStepLogs(child);
             boolean afterStep = isAfterStep(child.attr("title"));
 
-            if (afterStep && !steps.isEmpty()) {
-                Step prev = steps.remove(steps.size() - 1);
-                List<Log> merged = new ArrayList<>(prev.logs());
-                merged.addAll(logs);
-                steps.add(new Step(prev.text(), prev.status(), merged));
+            if (afterStep) {
+                if (includeLogs && !steps.isEmpty()) {
+                    List<Log> logs = parseStepLogs(child);
+                    Step prev = steps.remove(steps.size() - 1);
+                    List<Log> merged = new ArrayList<>(prev.logs());
+                    merged.addAll(logs);
+                    steps.add(new Step(prev.text(), prev.status(), merged));
+                }
                 continue;
             }
 
+            List<Log> logs = includeLogs ? parseStepLogs(child) : List.of();
             steps.add(new Step(text, status, logs));
         }
 

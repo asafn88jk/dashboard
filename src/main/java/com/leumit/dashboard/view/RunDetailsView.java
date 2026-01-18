@@ -4,6 +4,7 @@ import com.leumit.dashboard.config.DashboardFiltersProperties;
 import com.leumit.dashboard.model.ExtentSummary;
 import com.leumit.dashboard.repo.RunPicker;
 import com.leumit.dashboard.run.RunHistoryAnalyzer;
+import com.leumit.dashboard.run.ReportCache;
 import com.leumit.dashboard.run.ReportCutoff;
 import com.leumit.dashboard.run.SparkHtmlReportParser;
 import com.leumit.dashboard.run.SparkHtmlReportParser.Feature;
@@ -60,6 +61,7 @@ public class RunDetailsView implements Serializable {
 
     private final DashboardFiltersProperties props;
     private final RunPicker runPicker;
+    private final ReportCache reportCache;
 
     // view params
     private String filter;
@@ -87,9 +89,10 @@ public class RunDetailsView implements Serializable {
     private final Map<String, String> runLabelsByFolder = new HashMap<>();
     private final Map<String, List<RunStatus>> scenarioHistoryByKey = new HashMap<>();
 
-    public RunDetailsView(DashboardFiltersProperties props, RunPicker runPicker) {
+    public RunDetailsView(DashboardFiltersProperties props, RunPicker runPicker, ReportCache reportCache) {
         this.props = props;
         this.runPicker = runPicker;
+        this.reportCache = reportCache;
         // IMPORTANT: use typed root so <p:treeNode type="ROOT"> can match if you define it (optional)
         this.featureTreeRoot = new DefaultTreeNode<>("ROOT",
                 new TreeItem(TreeType.ROOT, "ROOT", null, null, List.of(), 0, 0, 0, 0),
@@ -301,7 +304,7 @@ public class RunDetailsView implements Serializable {
                 if (currentReportPath != null && currentReportPath.equals(runReportPath)) {
                     statuses = currentStatuses;
                 } else {
-                    statuses = RunHistoryAnalyzer.parseScenarioStatuses(pr.reportPath());
+                    statuses = reportCache.getScenarioStatuses(pr.reportPath());
                 }
                 statusesByRun.put(runFolder, statuses);
             } catch (Exception ignored) {
