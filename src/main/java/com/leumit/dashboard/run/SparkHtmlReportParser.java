@@ -25,6 +25,14 @@ public final class SparkHtmlReportParser {
             Pattern.compile("var\\s+statusGroup\\s*=\\s*\\{(.*?)\\};", Pattern.DOTALL);
     private static final Pattern STATUS_GROUP_ENTRY =
             Pattern.compile("(\\w+)\\s*:\\s*(\\d+)");
+    private static final Pattern DASHBOARD_STARTED_PATTERN = Pattern.compile(
+            "<p[^>]*>\\s*Started\\s*</p>\\s*<h3[^>]*>([^<]+)</h3>",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    );
+    private static final Pattern DASHBOARD_ENDED_PATTERN = Pattern.compile(
+            "<p[^>]*>\\s*Ended\\s*</p>\\s*<h3[^>]*>([^<]+)</h3>",
+            Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+    );
     private static final List<DateTimeFormatter> REPORT_TIME_FMTS = List.of(
             DateTimeFormatter.ofPattern("MMM d, yyyy, h:mm:ss a", Locale.ENGLISH),
             DateTimeFormatter.ofPattern("MMM d, yyyy h:mm:ss a", Locale.ENGLISH),
@@ -81,6 +89,15 @@ public final class SparkHtmlReportParser {
 
     public static ExtentSummary parseSummary(Path reportHtml) throws IOException {
         String html = Files.readString(reportHtml);
+        ExtentSummary.Totals totals = totalsFromStatusGroup(html);
+        String started = findDashboardValueFast(html, DASHBOARD_STARTED_PATTERN);
+        String ended = findDashboardValueFast(html, DASHBOARD_ENDED_PATTERN);
+
+        if (totals != null) {
+            ExtentSummary.Run run = new ExtentSummary.Run(started, ended);
+            return new ExtentSummary(run, totals, List.of());
+        }
+
         Document doc = Jsoup.parse(html);
         return parseSummary(doc, html, null);
     }
@@ -373,6 +390,15 @@ public final class SparkHtmlReportParser {
             if (!label.equalsIgnoreCase(p.text().trim())) continue;
             Element h3 = body.selectFirst("h3");
             return textOf(h3);
+        }
+        return "";
+    }
+
+    private static String findDashboardValueFast(String html, Pattern pattern) {
+        if (html == null || html.isBlank() || pattern == null) return "";
+        Matcher m = pattern.matcher(html);
+        if (m.find()) {
+            return m.group(1).trim();
         }
         return "";
     }
