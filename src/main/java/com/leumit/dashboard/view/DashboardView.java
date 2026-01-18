@@ -4,6 +4,7 @@ import com.leumit.dashboard.config.DashboardFiltersProperties;
 import com.leumit.dashboard.repo.RunPicker;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import software.xdev.chartjs.model.charts.DoughnutChart;
@@ -30,14 +31,20 @@ public class DashboardView implements Serializable {
 
   private final DashboardFiltersProperties props;
   private final RunPicker runPicker;
+  private final int autoRefreshSeconds;
 
   private List<String> filters;
   private String activeFilter;
   private List<DashboardCard> cards;
 
-  public DashboardView(DashboardFiltersProperties props, RunPicker runPicker) {
+  public DashboardView(
+          DashboardFiltersProperties props,
+          RunPicker runPicker,
+          @Value("${dashboard.autoRefreshSeconds:60}") int autoRefreshSeconds
+  ) {
     this.props = props;
     this.runPicker = runPicker;
+    this.autoRefreshSeconds = Math.max(0, autoRefreshSeconds);
   }
 
   private static final List<DateTimeFormatter> EXTENT_TIME_FMTS = List.of(
@@ -94,6 +101,11 @@ public class DashboardView implements Serializable {
 
   public void setActiveFilter(String activeFilter) {
     this.activeFilter = activeFilter;
+    this.cards = loadCardsFor(activeFilter);
+  }
+
+  public void refreshCards() {
+    if (activeFilter == null || activeFilter.isBlank()) return;
     this.cards = loadCardsFor(activeFilter);
   }
 
@@ -209,4 +221,6 @@ public class DashboardView implements Serializable {
   public List<String> getFilters() { return filters; }
   public String getActiveFilter() { return activeFilter; }
   public List<DashboardCard> getCards() { return cards; }
+  public int getAutoRefreshSeconds() { return autoRefreshSeconds; }
+  public boolean isAutoRefreshEnabled() { return autoRefreshSeconds > 0; }
 }

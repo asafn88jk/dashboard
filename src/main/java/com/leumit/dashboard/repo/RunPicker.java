@@ -16,10 +16,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.PriorityQueue;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -63,9 +62,9 @@ public class RunPicker {
     }
     long summaryMs = (System.nanoTime() - summaryStartNs) / 1_000_000;
     long totalMs = (System.nanoTime() - startNs) / 1_000_000;
-    log.info("RunPicker.pickLatestRuns baseDir={} limit={} matchedDirs={} candidates={} selected={} cache={} scanMs={} summaryMs={} totalMs={}",
+    log.info("RunPicker.pickLatestRuns baseDir={} limit={} matchedDirs={} candidates={} selected={} cachedUsed={} newCandidates={} scanMs={} summaryMs={} totalMs={}",
             baseDir, limit, fetch.matchedDirs(), fetch.candidates().size(), out.size(),
-            fetch.cacheHit() ? "hit" : "miss", fetch.scanMs(), summaryMs, totalMs);
+            fetch.cachedUsed(), fetch.newCandidates(), fetch.scanMs(), summaryMs, totalMs);
     return out;
   }
 
@@ -78,8 +77,8 @@ public class RunPicker {
 
     if (best == null) {
       long totalMs = (System.nanoTime() - startNs) / 1_000_000;
-      log.info("RunPicker.pickLatestFast baseDir={} matchedDirs={} candidates=0 cache={} scanMs={} totalMs={}",
-              baseDir, fetch.matchedDirs(), fetch.cacheHit() ? "hit" : "miss", fetch.scanMs(), totalMs);
+      log.info("RunPicker.pickLatestFast baseDir={} matchedDirs={} candidates=0 cachedUsed={} newCandidates={} scanMs={} totalMs={}",
+              baseDir, fetch.matchedDirs(), fetch.cachedUsed(), fetch.newCandidates(), fetch.scanMs(), totalMs);
       return Optional.empty();
     }
 
@@ -92,8 +91,8 @@ public class RunPicker {
       }
       long summaryMs = (System.nanoTime() - summaryStartNs) / 1_000_000;
       long totalMs = (System.nanoTime() - startNs) / 1_000_000;
-      log.info("RunPicker.pickLatestFast baseDir={} matchedDirs={} candidates={} cache={} scanMs={} summaryMs={} totalMs={}",
-              baseDir, fetch.matchedDirs(), fetch.candidates().size(), fetch.cacheHit() ? "hit" : "miss",
+      log.info("RunPicker.pickLatestFast baseDir={} matchedDirs={} candidates={} cachedUsed={} newCandidates={} scanMs={} summaryMs={} totalMs={}",
+              baseDir, fetch.matchedDirs(), fetch.candidates().size(), fetch.cachedUsed(), fetch.newCandidates(),
               fetch.scanMs(), summaryMs, totalMs);
       return Optional.of(new PickedRun(best.runDir(), best.reportPath(), best.lastModified().toMillis(), summary));
     } catch (IOException ignored) {
@@ -102,16 +101,13 @@ public class RunPicker {
   }
 
   private CandidateFetch fetchCandidates(Path baseDir, Pattern dirNamePattern) throws IOException {
-    Optional<RunPickerCache.CachedCandidates> cached = runPickerCache.get(baseDir, dirNamePattern);
-    if (cached.isPresent()) {
-      RunPickerCache.CachedCandidates hit = cached.get();
-      List<Candidate> candidates = candidatesFromCache(hit);
-      return new CandidateFetch(candidates, hit.matchedDirs(), true, 0);
-    }
-
+    Map<String, RunPickerCache.CandidateEntry> cachedEntries =
+            runPickerCache.loadEntries(baseDir, dirNamePattern);
     long scanStartNs = System.nanoTime();
     int[] matchedDirs = new int[1];
     List<Candidate> candidates = new ArrayList<>();
+    List<RunPickerCache.CandidateEntry> newEntries = new ArrayList<>();
+    int[] cachedUsed = new int[1];
 
     try (Stream<Path> s = Files.list(baseDir)) {
       s.filter(Files::isDirectory)
@@ -120,15 +116,35 @@ public class RunPicker {
             if (matches) matchedDirs[0]++;
             return matches;
           })
-          .map(this::toCandidate)
-          .flatMap(Optional::stream)
-          .forEach(candidates::add);
+          .forEach(p -> {
+            String key = RunPickerCache.normalizeRunDir(p);
+            RunPickerCache.CandidateEntry cached = cachedEntries.get(key);
+            if (cached != null) {
+              candidates.add(new Candidate(
+                      Path.of(cached.runDir()),
+                      Path.of(cached.reportPath()),
+                      FileTime.fromMillis(cached.lastModifiedMillis())
+              ));
+              cachedUsed[0]++;
+              return;
+            }
+
+            Optional<Candidate> candidate = toCandidate(p);
+            if (candidate.isPresent()) {
+              Candidate c = candidate.get();
+              candidates.add(c);
+              newEntries.add(new RunPickerCache.CandidateEntry(
+                      RunPickerCache.normalizeRunDir(c.runDir()),
+                      c.reportPath().toAbsolutePath().normalize().toString(),
+                      c.lastModified().toMillis()
+              ));
+            }
+          });
     }
 
     long scanMs = (System.nanoTime() - scanStartNs) / 1_000_000;
-    runPickerCache.put(baseDir, dirNamePattern,
-            new RunPickerCache.CachedCandidates(System.currentTimeMillis(), matchedDirs[0], toEntries(candidates)));
-    return new CandidateFetch(candidates, matchedDirs[0], false, scanMs);
+    runPickerCache.putAll(baseDir, dirNamePattern, newEntries);
+    return new CandidateFetch(candidates, matchedDirs[0], cachedUsed[0], newEntries.size(), scanMs);
   }
 
   private static Candidate bestCandidate(List<Candidate> candidates) {
@@ -139,29 +155,6 @@ public class RunPicker {
       }
     }
     return best;
-  }
-
-  private static List<RunPickerCache.CandidateEntry> toEntries(List<Candidate> candidates) {
-    List<RunPickerCache.CandidateEntry> out = new ArrayList<>();
-    for (Candidate c : candidates) {
-      out.add(new RunPickerCache.CandidateEntry(
-              c.runDir().toString(),
-              c.reportPath().toString(),
-              c.lastModified().toMillis()
-      ));
-    }
-    return out;
-  }
-
-  private static List<Candidate> candidatesFromCache(RunPickerCache.CachedCandidates cached) {
-    List<Candidate> out = new ArrayList<>();
-    for (RunPickerCache.CandidateEntry entry : cached.candidates()) {
-      Path runDir = Path.of(entry.runDir());
-      Path reportPath = Path.of(entry.reportPath());
-      if (!Files.exists(reportPath)) continue;
-      out.add(new Candidate(runDir, reportPath, FileTime.fromMillis(entry.lastModifiedMillis())));
-    }
-    return out;
   }
 
   private Optional<Candidate> toCandidate(Path runDir) {
@@ -179,18 +172,6 @@ public class RunPicker {
     }
   }
 
-  private static void pushCandidate(PriorityQueue<Candidate> top, Candidate c, int limit) {
-    if (top.size() < limit) {
-      top.add(c);
-      return;
-    }
-    Candidate oldest = top.peek();
-    if (oldest != null && c.lastModified().compareTo(oldest.lastModified()) > 0) {
-      top.poll();
-      top.add(c);
-    }
-  }
-
   private static boolean isBeforeCutoff(FileTime ts, LocalDate cutoff) {
     if (ts == null || cutoff == null) return false;
     LocalDate date = LocalDateTime.ofInstant(Instant.ofEpochMilli(ts.toMillis()), ZoneId.systemDefault())
@@ -200,7 +181,13 @@ public class RunPicker {
 
   private record Candidate(Path runDir, Path reportPath, FileTime lastModified) {}
 
-  private record CandidateFetch(List<Candidate> candidates, int matchedDirs, boolean cacheHit, long scanMs) {}
+  private record CandidateFetch(
+          List<Candidate> candidates,
+          int matchedDirs,
+          int cachedUsed,
+          int newCandidates,
+          long scanMs
+  ) {}
 
   public record PickedRun(Path runDir, Path reportPath, long lastModifiedMillis, ExtentSummary summary) {}
 }

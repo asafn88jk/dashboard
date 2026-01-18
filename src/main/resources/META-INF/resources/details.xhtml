@@ -27,6 +27,10 @@
             --border: #e6eaf2;
             --muted: #667085;
             --shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+            --brand-1: #b54586;
+            --brand-2: #9e3d7d;
+            --brand-3: #6f2c69;
+            --brand-ink: #ffffff;
         }
         /* -------- Extent-like typography -------- */
         html, body, .ui-widget {
@@ -41,6 +45,100 @@
         }
         body.lb-open {
             overflow: hidden;
+        }
+
+        .details-menubar-wrap {
+            background: linear-gradient(90deg, var(--brand-1), var(--brand-2) 55%, var(--brand-3));
+            padding: 6px 12px;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
+        }
+        .details-menubar {
+            background: transparent;
+            border: 0;
+            padding: 0;
+            direction: rtl;
+        }
+        .details-menubar .ui-menubar-root-list {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .details-menubar .ui-menuitem-link {
+            color: var(--brand-ink);
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-weight: 700;
+        }
+        .details-menubar .ui-menuitem-link .ui-menuitem-icon {
+            color: var(--brand-ink);
+        }
+        .details-menubar .ui-menuitem-link.ui-state-hover,
+        .details-menubar .ui-menuitem-link.ui-state-focus {
+            background: rgba(255, 255, 255, 0.16);
+        }
+        .details-menubar .ui-menu-list {
+            background: #ffffff;
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+            padding: 4px 0;
+            min-width: 180px;
+        }
+        .details-menubar .ui-menu-list .ui-menuitem-link {
+            color: #111827;
+        }
+        .details-menubar .ui-menu-list .ui-menuitem-link .ui-menuitem-icon {
+            color: #6b7280;
+        }
+        .details-menubar .ui-menubar-custom,
+        .details-menubar .ui-menubar-custom-start,
+        .details-menubar .ui-menubar-custom-end {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .menu-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--brand-ink);
+            font-weight: 800;
+            font-size: 13px;
+        }
+        .menu-logo {
+            height: 28px;
+            width: auto;
+        }
+        .menu-badges {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .menuBadge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 800;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.14);
+            color: #ffffff;
+        }
+        .menuBadge .menuBadgeLabel {
+            opacity: 0.9;
+        }
+        .menuBadge .menuBadgeValue {
+            font-variant-numeric: tabular-nums;
+        }
+        .menuBadge-total {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .details-menubar .menu-current > .ui-menuitem-link {
+            background: rgba(255, 255, 255, 0.22);
         }
 
         .page {
@@ -634,6 +732,71 @@
 </h:head>
 
 <h:body>
+    <div class="details-menubar-wrap">
+        <p:menubar styleClass="details-menubar">
+            <f:facet name="start">
+                <div class="menu-brand">
+                    <h:graphicImage value="#{request.contextPath}/resources/images/tamar.svg"
+                                    styleClass="menu-logo" />
+                    <span>#{runDetailsView.filter}</span>
+                </div>
+            </f:facet>
+
+            <p:menuitem value="חזרה" icon="pi pi-arrow-right" outcome="index" />
+
+            <p:submenu label="#{runDetailsView.runLabel(runDetailsView.run)}" icon="pi pi-calendar">
+                <ui:fragment rendered="#{runDetailsView.hasHistory}">
+                    <ui:repeat value="#{runDetailsView.recentRuns}" var="r">
+                        <p:menuitem value="#{r.label}"
+                                    outcome="details"
+                                    title="#{r.tooltip}"
+                                    styleClass="#{r.current ? 'menu-current' : ''}">
+                            <f:param name="filter" value="#{runDetailsView.filter}" />
+                            <f:param name="item" value="#{runDetailsView.item}" />
+                            <f:param name="run" value="#{r.runFolder}" />
+                        </p:menuitem>
+                    </ui:repeat>
+                </ui:fragment>
+                <ui:fragment rendered="#{not runDetailsView.hasHistory}">
+                    <p:menuitem value="ללא היסטוריה" disabled="true" />
+                </ui:fragment>
+            </p:submenu>
+
+            <f:facet name="end">
+                <div class="menu-badges">
+                    <ui:fragment rendered="#{not empty runDetailsView.item}">
+                        <span class="menuBadge menuBadge-env">
+                            <span class="menuBadgeLabel">סביבה</span>
+                            <span class="menuBadgeValue">#{runDetailsView.item}</span>
+                        </span>
+                    </ui:fragment>
+                    <ui:fragment rendered="#{not empty runDetailsView.summary}">
+                        <span class="menuBadge menuBadge-total">
+                            <span class="menuBadgeLabel">סה״כ</span>
+                            <span class="menuBadgeValue">#{runDetailsView.summary.totals.total}</span>
+                        </span>
+                        <span class="menuBadge st-pass">
+                            <span class="menuBadgeLabel">עבר</span>
+                            <span class="menuBadgeValue">#{runDetailsView.summary.totals.pass}</span>
+                        </span>
+                        <span class="menuBadge st-fail">
+                            <span class="menuBadgeLabel">נכשל</span>
+                            <span class="menuBadgeValue">#{runDetailsView.summary.totals.fail}</span>
+                        </span>
+                        <span class="menuBadge st-knownbug">
+                            <span class="menuBadgeLabel">באג</span>
+                            <span class="menuBadgeValue">#{runDetailsView.summary.totals.knownBug}</span>
+                        </span>
+                        <span class="menuBadge st-skip">
+                            <span class="menuBadgeLabel">דולג</span>
+                            <span class="menuBadgeValue">#{runDetailsView.summary.totals.skip}</span>
+                        </span>
+                    </ui:fragment>
+                </div>
+            </f:facet>
+        </p:menubar>
+    </div>
+
     <div class="page">
 
         <h:panelGroup id="titleBar" layout="block" styleClass="topCard">

@@ -47,6 +47,12 @@
 
         <main class="main">
             <h:form id="filtersForm">
+                <p:poll interval="#{dashboardView.autoRefreshSeconds}"
+                        listener="#{dashboardView.refreshCards}"
+                        update="cards"
+                        process="@this"
+                        autoStart="true"
+                        rendered="#{dashboardView.autoRefreshEnabled}" />
                 <div class="filters">
                     <ui:repeat value="#{dashboardView.filters}" var="f">
                         <p:commandLink styleClass="pill #{dashboardView.activeFilter eq f ? 'active' : ''}"

@@ -1,5 +1,8 @@
 server:
   port: 8089
+  servlet:
+    session:
+      timeout: 12h
 
 joinfaces:
   faces:
@@ -15,6 +18,7 @@ spring:
       force: true
 
 dashboard:
+  autoRefreshSeconds: 60
   filters:
     - name: "שפיות"
       items:
@@ -39,4 +43,3 @@ dashboard:
 #        - title: "שקד"
 #          baseDir: "D:/Runs/Shaked/Regression"
 #          dirNameRegex: "^Sanity.*"
-
