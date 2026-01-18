@@ -117,7 +117,7 @@
         .grid {
             margin-top: 12px;
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 320px;
+            grid-template-columns: minmax(0, 1fr) 380px;
             gap: 10px;
             direction: ltr; /* layout direction */
             align-items: stretch;
@@ -230,9 +230,10 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             width: 100%;
-            padding: 4px 2px;
+            padding: 2px 2px;
+            line-height: 1.2;
         }
 
         .treeLabel {
@@ -255,17 +256,21 @@
             margin-left: 6px;
         }
         .treeGroupBtn .folder-open { display: none; }
-        .featTree li.ui-treenode-expanded .treeGroupBtn .folder-open { display: inline-block; }
-        .featTree li.ui-treenode-expanded .treeGroupBtn .folder-closed { display: none; }
+        .treeRow.is-open .folder-open { display: inline-block; }
+        .treeRow.is-open .folder-closed { display: none; }
 
         .featTree .ui-treenode,
         .featTree .ui-treenode-content {
             margin: 0;
             padding: 0;
         }
+        .featTree .ui-tree-container {
+            margin: 0;
+            padding: 0;
+        }
         .featTree .ui-treenode-children {
             margin: 0;
-            padding: 0 8px 0 0;
+            padding: 0 6px 0 0;
         }
         .featTree .ui-treenode-toggler,
         .featTree .ui-tree-toggler,
@@ -308,20 +313,25 @@
         }
         .statusFilters {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             gap: 6px;
         }
         .filterBtn {
             border: 1px solid #e5e7eb;
             background: #fff;
             border-radius: 8px;
-            padding: 4px 8px;
-            font-size: 12px;
+            padding: 4px 6px;
+            font-size: 11px;
             font-weight: 700;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             gap: 6px;
+        }
+        .filterBtn.icon-only {
+            min-width: 30px;
+            justify-content: center;
+            padding: 4px 6px;
         }
         .filterBtn.is-active {
             box-shadow: inset 0 0 0 1px #94a3b8;
@@ -813,17 +823,21 @@
                                 <button type="button" class="filterBtn js-tree-status is-active" data-status="all">
                                     <i class="fa-solid fa-list"></i>All
                                 </button>
-                                <button type="button" class="filterBtn filter-pass js-tree-status" data-status="PASS">
-                                    <i class="fa-solid fa-check"></i>Pass
+                                <button type="button" class="filterBtn filter-pass js-tree-status icon-only" data-status="PASS"
+                                        title="Pass">
+                                    <i class="fa-solid fa-check"></i>
                                 </button>
-                                <button type="button" class="filterBtn filter-fail js-tree-status" data-status="FAIL">
-                                    <i class="fa-solid fa-xmark"></i>Fail
+                                <button type="button" class="filterBtn filter-fail js-tree-status icon-only" data-status="FAIL"
+                                        title="Fail">
+                                    <i class="fa-solid fa-xmark"></i>
                                 </button>
-                                <button type="button" class="filterBtn filter-knownbug js-tree-status" data-status="WARNING">
-                                    <i class="fa-solid fa-triangle-exclamation"></i>Known Bug
+                                <button type="button" class="filterBtn filter-knownbug js-tree-status icon-only" data-status="WARNING"
+                                        title="Known Bug">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
                                 </button>
-                                <button type="button" class="filterBtn filter-skip js-tree-status" data-status="SKIP">
-                                    <i class="fa-solid fa-forward"></i>Skip
+                                <button type="button" class="filterBtn filter-skip js-tree-status icon-only" data-status="SKIP"
+                                        title="Skip">
+                                    <i class="fa-solid fa-forward"></i>
                                 </button>
                             </div>
 
@@ -862,8 +876,8 @@
                         <p:treeNode type="GROUP">
                             <div class="treeRow" data-node-type="group">
                             <span class="treeGroup treeGroupBtn js-tree-toggle" role="button" tabindex="0">
-                                <i class="fa-regular fa-folder folderIcon folder-closed"></i>
-                                <i class="fa-regular fa-folder-open folderIcon folder-open"></i>
+                                <i class="fa-solid fa-folder folderIcon folder-closed"></i>
+                                <i class="fa-solid fa-folder-open folderIcon folder-open"></i>
                                 <span>#{t.label}</span>
                             </span>
                                 <span class="treeCounts">
@@ -967,6 +981,13 @@
             var tree = document.getElementById('featTree');
             if (!tree) return;
 
+            function syncFolderIcon(node) {
+                if (!node) return;
+                var row = node.querySelector('.treeRow[data-node-type="group"]');
+                if (!row) return;
+                row.classList.toggle('is-open', node.classList.contains('ui-treenode-expanded'));
+            }
+
             function setExpanded(node, expanded) {
                 if (!node) return;
                 var children = node.querySelector('.ui-treenode-children');
@@ -974,6 +995,7 @@
                 node.classList.toggle('ui-treenode-expanded', expanded);
                 node.classList.toggle('ui-treenode-collapsed', !expanded);
                 children.style.display = expanded ? 'block' : 'none';
+                syncFolderIcon(node);
             }
 
             function toggleNode(node, expand) {
@@ -1044,6 +1066,10 @@
 
             var statusButtons = document.querySelectorAll('.js-tree-status');
             var allBtn = document.querySelector('.js-tree-status[data-status="all"]');
+
+            tree.querySelectorAll('li.ui-treenode').forEach(function(node) {
+                syncFolderIcon(node);
+            });
 
             statusButtons.forEach(function(btn) {
                 btn.addEventListener('click', function() {

@@ -38,7 +38,7 @@ body.app {
 
 /* Top bar */
 .topbar{
-    height: 64px;
+    height: 58px;
     background: linear-gradient(90deg, #7c3aed, #db2777);
     box-shadow: 0 2px 12px rgba(0,0,0,0.12);
     display: flex;
@@ -65,7 +65,7 @@ body.app {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
 
     direction: rtl; /* keep Hebrew text behavior inside center */
 }
@@ -78,7 +78,7 @@ body.app {
 
 
 .brand{
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 900;
     line-height: 1;
     color: #fff;
@@ -86,21 +86,21 @@ body.app {
 }
 
 .topbar-logo{
-    height: 34px;
+    height: 30px;
     width: auto;
     display: block;
     filter: drop-shadow(0 2px 6px rgba(0,0,0,0.18));
 }
 
 .topbar-logo-empire{
-    height: 30px;
+    height: 28px;
 }
 
 
 /* Shell */
 .shell {
     display: flex;
-    min-height: calc(100vh - 64px);
+    min-height: calc(100vh - 58px);
 }
 
 /* Sidebar */
@@ -131,7 +131,7 @@ body.app {
 /* Main */
 .main {
     flex: 1;
-    padding: 18px 20px;
+    padding: 12px 14px;
 }
 
 /* Filters (top pills) */
@@ -139,11 +139,11 @@ body.app {
     background: #ffffffcc;
     border: 1px solid #e9d5ff;
     border-radius: 14px;
-    padding: 10px;
+    padding: 8px 10px;
     display: flex;
-    gap: 12px;
+    gap: 8px;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     overflow: auto;
 }
 
@@ -151,28 +151,31 @@ body.app {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 11px 18px;
+    padding: 8px 14px;
     border-radius: 999px;
     text-decoration: none;
     color: #111827;
     font-weight: 800;
-    font-size: 16px;
-    min-width: 115px;
+    font-size: 14px;
+    min-width: 92px;
     background: transparent;
     white-space: nowrap;
+    border: 1px solid transparent;
 }
 
 .pill.active {
     color: #fff;
     background: linear-gradient(90deg, #7c3aed, #db2777);
+    border-color: #7c3aed;
+    box-shadow: 0 6px 16px rgba(124, 58, 237, 0.28);
 }
 
 /* Cards grid */
 .cards {
-    margin-top: 18px;
+    margin-top: 12px;
     display: grid;
-    grid-template-columns: repeat(3, minmax(260px, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(3, minmax(220px, 1fr));
+    gap: 14px;
 }
 
 @media (max-width: 1100px) {
@@ -188,15 +191,15 @@ body.app {
     background: #f7f0ff;
     border: 1px solid #e9d5ff;
     border-radius: 14px;
-    padding: 18px 18px 16px;
+    padding: 12px 12px 10px;
     box-shadow: 0 10px 30px rgba(124, 58, 237, 0.08);
 }
 
 .card-title {
-    font-size: 28px;
+    font-size: 22px;
     font-weight: 900;
     text-align: center;
-    margin: 8px 0 6px;
+    margin: 6px 0 4px;
 }
 
 /* Donut + center text */
@@ -209,8 +212,8 @@ body.app {
 }
 
 .donut {
-    width: 260px;
-    height: 260px;
+    width: 210px;
+    height: 210px;
 }
 
 /* robust centering for % text */
@@ -219,7 +222,7 @@ body.app {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 44px;
+    font-size: 34px;
     font-weight: 700;
     letter-spacing: -0.2px;
     color: #111827;
@@ -230,13 +233,13 @@ body.app {
 
 .card-meta{
     text-align: center;
-    margin-top: 8px;
+    margin-top: 6px;
     font-weight: 600;
 }
 
 .meta-line{
-    margin-top: 6px;
-    font-size: 15px;
+    margin-top: 4px;
+    font-size: 13px;
     color: #111827;
     opacity: 0.9;
 }

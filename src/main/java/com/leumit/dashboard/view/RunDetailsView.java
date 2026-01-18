@@ -288,9 +288,11 @@ public class RunDetailsView implements Serializable {
                 ? Map.of()
                 : buildScenarioStatusesFromFeatures();
 
-        Map<String, List<RunStatus>> history = new HashMap<>();
+        List<String> runOrder = new ArrayList<>();
+        Map<String, Map<String, String>> statusesByRun = new LinkedHashMap<>();
         for (RunPicker.PickedRun pr : recent) {
             String runFolder = pr.runDir().getFileName().toString();
+            runOrder.add(runFolder);
             try {
                 Map<String, String> statuses;
                 Path runReportPath = pr.reportPath() == null
@@ -301,17 +303,27 @@ public class RunDetailsView implements Serializable {
                 } else {
                     statuses = RunHistoryAnalyzer.parseScenarioStatuses(pr.reportPath());
                 }
-                for (Map.Entry<String, String> entry : statuses.entrySet()) {
-                    history.computeIfAbsent(entry.getKey(), k -> new ArrayList<>())
-                            .add(new RunStatus(runFolder, entry.getValue()));
-                }
+                statusesByRun.put(runFolder, statuses);
             } catch (Exception ignored) {
-                // Ignore bad runs when building history
+                statusesByRun.put(runFolder, Map.of());
             }
         }
 
-        for (Map.Entry<String, List<RunStatus>> entry : history.entrySet()) {
-            scenarioHistoryByKey.put(entry.getKey(), entry.getValue());
+        Set<String> allScenarioKeys = new LinkedHashSet<>();
+        for (Map<String, String> statuses : statusesByRun.values()) {
+            allScenarioKeys.addAll(statuses.keySet());
+        }
+
+        for (String key : allScenarioKeys) {
+            List<RunStatus> statuses = new ArrayList<>();
+            for (String runFolder : runOrder) {
+                String status = statusesByRun.getOrDefault(runFolder, Map.of()).get(key);
+                if (status == null || status.isBlank()) {
+                    status = "UNKNOWN";
+                }
+                statuses.add(new RunStatus(runFolder, status));
+            }
+            scenarioHistoryByKey.put(key, statuses);
         }
     }
 

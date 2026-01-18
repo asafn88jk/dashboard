@@ -262,7 +262,9 @@ public final class SparkHtmlReportParser {
 
         Element stepsContainer = firstNonNull(
                 card.selectFirst("> div.collapse > div.card-body"),
-                card.selectFirst("> div.card-body")
+                card.selectFirst("> div > div.card-body"),
+                card.selectFirst("> div.card-body"),
+                card.selectFirst("div.card-body")
         );
 
         return new Scenario(name, status, parseSteps(stepsContainer));

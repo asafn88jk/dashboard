@@ -21,6 +21,8 @@
             </div>
 
             <div class="topbar-center">
+                <h:graphicImage value="#{request.contextPath}/resources/images/empire.png"
+                                styleClass="topbar-logo topbar-logo-empire" />
                 <div class="brand">צוות אוטומציה</div>
                 <h:graphicImage value="#{request.contextPath}/resources/images/empire.png"
                                 styleClass="topbar-logo topbar-logo-empire" />
@@ -48,7 +50,7 @@
                 <div class="filters">
                     <ui:repeat value="#{dashboardView.filters}" var="f">
                         <p:commandLink styleClass="pill #{dashboardView.activeFilter eq f ? 'active' : ''}"
-                                       update="cards"
+                                       update="filtersForm cards"
                                        process="@this">
                             <f:setPropertyActionListener target="#{dashboardView.activeFilter}" value="#{f}"/>
                             <h:outputText value="#{f}"/>
