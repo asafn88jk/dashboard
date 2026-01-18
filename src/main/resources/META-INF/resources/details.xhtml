@@ -31,6 +31,7 @@
         /* -------- Extent-like typography -------- */
         html, body, .ui-widget {
             font-family: "Source Sans Pro","Open Sans","Segoe UI",Roboto,Arial,sans-serif !important;
+            font-size: 13px;
         }
 
         body {
@@ -43,9 +44,9 @@
         }
 
         .page {
-            padding: 14px;
+            padding: 8px 10px;
             direction: rtl;
-            max-width: 1600px;
+            max-width: 100%;
             margin: 0 auto;
         }
 
@@ -66,13 +67,13 @@
 
         .title {
             font-weight: 900;
-            font-size: 18px;
+            font-size: 16px;
             line-height: 1.2;
         }
 
         .meta {
             color: var(--muted);
-            font-size: 12px;
+            font-size: 11px;
             margin-top: 6px;
         }
         .runSwitcher {
@@ -81,7 +82,7 @@
             flex-wrap: wrap;
             gap: 6px;
             align-items: center;
-            font-size: 12px;
+            font-size: 11px;
         }
         .runSwitcherLabel { font-weight: 700; color: #475569; }
         .runChip {
@@ -116,8 +117,8 @@
         .grid {
             margin-top: 12px;
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 360px;
-            gap: 12px;
+            grid-template-columns: minmax(0, 1fr) 320px;
+            gap: 10px;
             direction: ltr; /* layout direction */
             align-items: stretch;
         }
@@ -126,7 +127,7 @@
             background: var(--card);
             border: 1px solid var(--border);
             border-radius: 16px;
-            padding: 12px 14px;
+            padding: 10px 12px;
             min-height: calc(100vh - 140px);
             direction: rtl; /* text direction */
             box-shadow: var(--shadow);
@@ -135,7 +136,7 @@
         .paneHeader {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             gap: 10px;
             margin-bottom: 12px;
             padding-bottom: 8px;
@@ -151,8 +152,46 @@
 
         .paneTitle {
             font-weight: 900;
-            font-size: 15px;
+            font-size: 14px;
             text-align: right;
+        }
+        .featureHeader {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 100%;
+        }
+        .featureTitleRow {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        .featureTitleGroup {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+        .featureMetaBadges {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            flex: 0 0 auto;
+        }
+        .metaBadge {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+            color: #475569;
+        }
+        .historyBadge {
+            padding: 2px 6px;
+            font-weight: 800;
+            min-width: 22px;
+            justify-content: center;
         }
 
         /* -------- Pills / statuses -------- */
@@ -191,9 +230,9 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             width: 100%;
-            padding: 6px 4px;
+            padding: 4px 2px;
         }
 
         .treeLabel {
@@ -210,6 +249,24 @@
             gap: 6px;
             cursor: pointer;
         }
+        .treeGroupBtn .folderIcon {
+            color: #f59e0b;
+            font-size: 13px;
+            margin-left: 6px;
+        }
+        .treeGroupBtn .folder-open { display: none; }
+        .featTree li.ui-treenode-expanded .treeGroupBtn .folder-open { display: inline-block; }
+        .featTree li.ui-treenode-expanded .treeGroupBtn .folder-closed { display: none; }
+
+        .featTree .ui-treenode,
+        .featTree .ui-treenode-content {
+            margin: 0;
+            padding: 0;
+        }
+        .featTree .ui-treenode-children {
+            margin: 0;
+            padding: 0 8px 0 0;
+        }
         .featTree .ui-treenode-toggler,
         .featTree .ui-tree-toggler,
         .featTree .ui-tree-toggler-icon {
@@ -221,23 +278,19 @@
 
         .treeCounts {
             display: inline-flex;
-            gap: 4px;
+            gap: 6px;
             align-items: center;
             font-size: 11px;
         }
 
-        .treeCount {
-            display: inline-flex;
-            align-items: center;
-            padding: 2px 6px;
-            border-radius: 6px;
-            border: 1px solid transparent;
-            font-weight: 700;
-            min-width: 24px;
+        .treeCountBadge {
+            padding: 1px 6px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 800;
+            min-width: 22px;
             justify-content: center;
-            gap: 4px;
         }
-        .treeCount i { font-size: 10px; }
 
         .treeFilters {
             background: #f8fafc;
@@ -415,12 +468,15 @@
         .ico-unknown { color: #6b7280; }
 
         .subMeta {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--muted);
         }
         .hdrLine > .subMeta {
             direction: ltr;
             text-align: left;
+        }
+        .scenarioMeta {
+            font-variant-numeric: tabular-nums;
         }
 
         .tags {
@@ -618,12 +674,30 @@
                     <ui:fragment rendered="#{not empty runDetailsView.selectedFeature}">
 
                         <div class="paneHeader">
-                            <div>
-                                <div class="paneTitle">#{runDetailsView.selectedFeatureFullTitle}</div>
-                                <div class="subMeta">
-                                    Scenarios: #{runDetailsView.selectedFeature.scenarios.size()}
-                                    <span style="margin:0 8px;">|</span>
-                                    משך: #{runDetailsView.selectedFeature.durationText}
+                            <div class="featureHeader">
+                                <div class="featureTitleRow">
+                                    <div class="featureTitleGroup">
+                                        <span class="pill #{runDetailsView.statusCss(runDetailsView.selectedFeature.status)}">
+                                            #{runDetailsView.statusBadgeLabel(runDetailsView.selectedFeature.status)}
+                                        </span>
+                                        <div class="paneTitle">#{runDetailsView.selectedFeatureFullTitle}</div>
+                                    </div>
+                                    <div class="featureMetaBadges">
+                                        <span class="pill metaBadge">
+                                            Scenarios: #{runDetailsView.selectedFeature.scenarios.size()}
+                                        </span>
+                                        <span class="pill metaBadge">
+                                            משך: #{runDetailsView.selectedFeature.durationText}
+                                        </span>
+                                        <ui:fragment rendered="#{not empty runDetailsView.featureHistory(runDetailsView.selectedFeature)}">
+                                            <ui:repeat value="#{runDetailsView.featureHistory(runDetailsView.selectedFeature)}" var="fh">
+                                                <span class="pill historyBadge #{runDetailsView.statusCss(fh.status)}"
+                                                      title="#{runDetailsView.runLabel(fh.runFolder)}">
+                                                    #{runDetailsView.statusShortLabel(fh.status)}
+                                                </span>
+                                            </ui:repeat>
+                                        </ui:fragment>
+                                    </div>
                                 </div>
                                 <ui:fragment rendered="#{not empty runDetailsView.selectedFeature.tags}">
                                     <div class="tags">
@@ -632,15 +706,6 @@
                                         </ui:repeat>
                                     </div>
                                 </ui:fragment>
-                            </div>
-
-                            <div class="paneBadges">
-                                <ui:fragment rendered="#{runDetailsView.selectedFeatureFlakyCount gt 0}">
-                                    <span class="pill st-flaky">Flaky #{runDetailsView.selectedFeatureFlakyCount}</span>
-                                </ui:fragment>
-                                <span class="pill #{runDetailsView.statusCss(runDetailsView.selectedFeature.status)}">
-                                    #{runDetailsView.statusBadgeLabel(runDetailsView.selectedFeature.status)}
-                                </span>
                             </div>
                         </div>
 
@@ -667,11 +732,14 @@
                                                     </ui:repeat>
                                                 </span>
                                             </ui:fragment>
-                                            <ui:fragment rendered="#{runDetailsView.scenarioFlaky(sc)}">
-                                                <span class="pill st-flaky">Flaky</span>
-                                            </ui:fragment>
                                         </div>
-                                        <span class="subMeta">#{sc.durationText}</span>
+                                        <span class="subMeta scenarioMeta">
+                                            <ui:fragment rendered="#{not empty sc.startTimeText}">
+                                                #{sc.startTimeText}
+                                                <span style="margin:0 6px;">|</span>
+                                            </ui:fragment>
+                                            #{sc.durationText}
+                                        </span>
                                     </div>
                                 </f:facet>
 
@@ -686,8 +754,8 @@
                                         <div class="stepHdr">
                                             <i class="statusIcon #{runDetailsView.statusIconClass(st.status)} #{runDetailsView.statusIconTone(st.status)}"></i>
                                             <span class="stepTitle">
-                                                <span class="stepKeyword">#{st.keyword}</span>
-                                                <span> — </span>
+                                                <strong class="stepKeyword">#{st.keyword}</strong>
+                                                <span>: </span>
                                                 <span>#{st.text}</span>
                                             </span>
                                         </div>
@@ -794,24 +862,22 @@
                         <p:treeNode type="GROUP">
                             <div class="treeRow" data-node-type="group">
                             <span class="treeGroup treeGroupBtn js-tree-toggle" role="button" tabindex="0">
-                                <i class="fa-regular fa-folder-open" style="margin-left:6px;"></i>
+                                <i class="fa-regular fa-folder folderIcon folder-closed"></i>
+                                <i class="fa-regular fa-folder-open folderIcon folder-open"></i>
                                 <span>#{t.label}</span>
                             </span>
                                 <span class="treeCounts">
                                 <ui:fragment rendered="#{t.passCount gt 0}">
-                                    <span class="treeCount st-pass"><i class="fa-solid fa-check"></i>#{t.passCount}</span>
+                                    <span class="pill st-pass treeCountBadge">#{t.passCount}</span>
                                 </ui:fragment>
                                 <ui:fragment rendered="#{t.failCount gt 0}">
-                                    <span class="treeCount st-fail"><i class="fa-solid fa-xmark"></i>#{t.failCount}</span>
+                                    <span class="pill st-fail treeCountBadge">#{t.failCount}</span>
                                 </ui:fragment>
                                 <ui:fragment rendered="#{t.knownBugCount gt 0}">
-                                    <span class="treeCount st-knownbug"><i class="fa-solid fa-triangle-exclamation"></i>#{t.knownBugCount}</span>
+                                    <span class="pill st-knownbug treeCountBadge">#{t.knownBugCount}</span>
                                 </ui:fragment>
                                 <ui:fragment rendered="#{t.skipCount gt 0}">
-                                    <span class="treeCount st-skip"><i class="fa-solid fa-forward"></i>#{t.skipCount}</span>
-                                </ui:fragment>
-                                <ui:fragment rendered="#{t.flakyCount gt 0}">
-                                    <span class="treeCount st-flaky"><i class="fa-solid fa-bolt"></i>#{t.flakyCount}</span>
+                                    <span class="pill st-skip treeCountBadge">#{t.skipCount}</span>
                                 </ui:fragment>
                             </span>
                             </div>
@@ -828,11 +894,6 @@
                             </span>
                                 #{t.label}
                             </span>
-                                <ui:fragment rendered="#{t.flakyCount gt 0}">
-                                    <span class="treeCounts">
-                                        <span class="treeCount st-flaky"><i class="fa-solid fa-bolt"></i>#{t.flakyCount}</span>
-                                    </span>
-                                </ui:fragment>
                             </div>
                         </p:treeNode>
 

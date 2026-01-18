@@ -52,6 +52,10 @@ public class RunDetailsView implements Serializable {
             "<p[^>]*class=['\"]localtime['\"][^>]*>.*?</p>",
             Pattern.CASE_INSENSITIVE | Pattern.DOTALL
     );
+    private static final Pattern LOG_LOCALTIME_VALUE_PATTERN = Pattern.compile(
+            "<p[^>]*class=['\"]localtime['\"][^>]*>([^<]+)</p>",
+            Pattern.CASE_INSENSITIVE
+    );
     private static final int HISTORY_LIMIT = 4;
 
     private final DashboardFiltersProperties props;
@@ -78,19 +82,17 @@ public class RunDetailsView implements Serializable {
     private TreeNode<TreeItem> selectedTreeNode;
     private final Map<String, TreeNode<TreeItem>> featureIdToTreeNode = new HashMap<>();
 
-    // history/flaky
+    // history
     private List<RunOption> recentRuns = List.of();
     private final Map<String, String> runLabelsByFolder = new HashMap<>();
-    private final Map<String, ScenarioHistory> scenarioHistoryByKey = new HashMap<>();
-    private final Map<String, Integer> featureFlakyCounts = new HashMap<>();
-    private int flakyScenarioCount;
+    private final Map<String, List<RunStatus>> scenarioHistoryByKey = new HashMap<>();
 
     public RunDetailsView(DashboardFiltersProperties props, RunPicker runPicker) {
         this.props = props;
         this.runPicker = runPicker;
         // IMPORTANT: use typed root so <p:treeNode type="ROOT"> can match if you define it (optional)
         this.featureTreeRoot = new DefaultTreeNode<>("ROOT",
-                new TreeItem(TreeType.ROOT, "ROOT", null, null, List.of(), 0, 0, 0, 0, 0),
+                new TreeItem(TreeType.ROOT, "ROOT", null, null, List.of(), 0, 0, 0, 0),
                 null
         );
     }
@@ -129,9 +131,6 @@ public class RunDetailsView implements Serializable {
             long historyStartNs = System.nanoTime();
             loadRunHistory(itemConfig, reportPath);
             long historyMs = (System.nanoTime() - historyStartNs) / 1_000_000;
-            long flakyStartNs = System.nanoTime();
-            computeFeatureFlakyCounts();
-            long flakyMs = (System.nanoTime() - flakyStartNs) / 1_000_000;
 
             long treeStartNs = System.nanoTime();
             buildFeatureTree(this.features);
@@ -151,8 +150,8 @@ public class RunDetailsView implements Serializable {
             log.info("RunDetails loaded: filter={}, item={}, run={}, dir={}, features={}",
                     filter, item, run, runDir, features.size());
             long totalMs = (System.nanoTime() - totalStartNs) / 1_000_000;
-            log.info("RunDetails timings: reportMs={} historyMs={} flakyMs={} treeMs={} totalMs={}",
-                    reportMs, historyMs, flakyMs, treeMs, totalMs);
+            log.info("RunDetails timings: reportMs={} historyMs={} treeMs={} totalMs={}",
+                    reportMs, historyMs, treeMs, totalMs);
 
         } catch (Exception e) {
             this.error = msg(e);
@@ -163,7 +162,7 @@ public class RunDetailsView implements Serializable {
             this.featureIdToTreeNode.clear();
 
             this.featureTreeRoot = new DefaultTreeNode<>("ROOT",
-                    new TreeItem(TreeType.ROOT, "ROOT", null, null, List.of(), 0, 0, 0, 0, 0),
+                    new TreeItem(TreeType.ROOT, "ROOT", null, null, List.of(), 0, 0, 0, 0),
                     null
             );
 
@@ -171,8 +170,6 @@ public class RunDetailsView implements Serializable {
             this.recentRuns = List.of();
             this.runLabelsByFolder.clear();
             this.scenarioHistoryByKey.clear();
-            this.featureFlakyCounts.clear();
-            this.flakyScenarioCount = 0;
         }
     }
 
@@ -240,13 +237,12 @@ public class RunDetailsView implements Serializable {
         return dir;
     }
 
-    // ---------------------- run history / flaky ----------------------
+    // ---------------------- run history ----------------------
 
     private void loadRunHistory(DashboardFiltersProperties.Item itemConfig, Path reportPath) {
         recentRuns = List.of();
         runLabelsByFolder.clear();
         scenarioHistoryByKey.clear();
-        flakyScenarioCount = 0;
 
         if (itemConfig == null) return;
 
@@ -287,11 +283,24 @@ public class RunDetailsView implements Serializable {
         }
         recentRuns = options;
 
+        Path currentReportPath = reportPath == null ? null : reportPath.toAbsolutePath().normalize();
+        Map<String, String> currentStatuses = currentReportPath == null
+                ? Map.of()
+                : buildScenarioStatusesFromFeatures();
+
         Map<String, List<RunStatus>> history = new HashMap<>();
         for (RunPicker.PickedRun pr : recent) {
             String runFolder = pr.runDir().getFileName().toString();
             try {
-                Map<String, String> statuses = RunHistoryAnalyzer.parseScenarioStatuses(pr.reportPath());
+                Map<String, String> statuses;
+                Path runReportPath = pr.reportPath() == null
+                        ? null
+                        : pr.reportPath().toAbsolutePath().normalize();
+                if (currentReportPath != null && currentReportPath.equals(runReportPath)) {
+                    statuses = currentStatuses;
+                } else {
+                    statuses = RunHistoryAnalyzer.parseScenarioStatuses(pr.reportPath());
+                }
                 for (Map.Entry<String, String> entry : statuses.entrySet()) {
                     history.computeIfAbsent(entry.getKey(), k -> new ArrayList<>())
                             .add(new RunStatus(runFolder, entry.getValue()));
@@ -302,34 +311,23 @@ public class RunDetailsView implements Serializable {
         }
 
         for (Map.Entry<String, List<RunStatus>> entry : history.entrySet()) {
-            List<RunStatus> statuses = entry.getValue();
-            boolean flaky = RunHistoryAnalyzer.isFlaky(
-                    statuses.stream().map(RunStatus::status).toList()
-            );
-            scenarioHistoryByKey.put(entry.getKey(), new ScenarioHistory(statuses, flaky));
-            if (flaky) flakyScenarioCount++;
+            scenarioHistoryByKey.put(entry.getKey(), entry.getValue());
         }
     }
 
-    private void computeFeatureFlakyCounts() {
-        featureFlakyCounts.clear();
-        if (features == null || features.isEmpty()) return;
-
+    private Map<String, String> buildScenarioStatusesFromFeatures() {
+        if (features == null || features.isEmpty()) return Map.of();
+        Map<String, String> out = new HashMap<>();
         for (FeatureModel f : features) {
-            int count = 0;
+            if (f.scenarios() == null) continue;
             for (ScenarioModel sc : f.scenarios()) {
-                if (isScenarioFlaky(f, sc)) {
-                    count++;
+                String key = scenarioKeyFor(f, sc);
+                if (!key.isBlank()) {
+                    out.put(key, sc.status());
                 }
             }
-            featureFlakyCounts.put(f.id(), count);
         }
-    }
-
-    private boolean isScenarioFlaky(FeatureModel feature, ScenarioModel scenario) {
-        String key = scenarioKeyFor(feature, scenario);
-        ScenarioHistory history = scenarioHistoryByKey.get(key);
-        return history != null && history.flaky();
+        return out;
     }
 
     private String scenarioKeyFor(FeatureModel feature, ScenarioModel scenario) {
@@ -395,6 +393,7 @@ public class RunDetailsView implements Serializable {
 
             List<ScenarioModel> scenarios = new ArrayList<>();
             for (Scenario sc : f.scenarios()) {
+                String scenarioStartTime = scenarioStartTimeFromSteps(sc.steps());
                 List<StepModel> steps = new ArrayList<>();
                 for (Step stp : sc.steps()) {
                     StepLabel lbl = splitStepLabelFromText(stp.text());
@@ -422,6 +421,7 @@ public class RunDetailsView implements Serializable {
                         UUID.randomUUID().toString(),
                         sc.name(),
                         sc.status(),
+                        scenarioStartTime,
                         scenarioDurationFromSteps(steps),
                         List.of(),
                         steps
@@ -479,6 +479,21 @@ public class RunDetailsView implements Serializable {
         return formatDuration(total);
     }
 
+    private static String scenarioStartTimeFromSteps(List<Step> steps) {
+        if (steps == null || steps.isEmpty()) return "";
+        for (Step st : steps) {
+            if (st == null || st.logs() == null) continue;
+            for (Log lg : st.logs()) {
+                String raw = lg == null ? "" : lg.detailsHtml();
+                String time = extractLocalTime(raw);
+                if (!time.isBlank()) {
+                    return time;
+                }
+            }
+        }
+        return "";
+    }
+
     private static Duration sumStepDurations(List<StepModel> steps) {
         if (steps == null || steps.isEmpty()) return null;
         long totalMillis = 0;
@@ -491,6 +506,15 @@ public class RunDetailsView implements Serializable {
             }
         }
         return found ? Duration.ofMillis(totalMillis) : null;
+    }
+
+    private static String extractLocalTime(String detailsHtml) {
+        if (detailsHtml == null || detailsHtml.isBlank()) return "";
+        Matcher m = LOG_LOCALTIME_VALUE_PATTERN.matcher(detailsHtml);
+        if (m.find()) {
+            return m.group(1).trim();
+        }
+        return "";
     }
 
     // We want Hebrew keyword display (like Extent in your screenshot) BUT strip English prefixes from name (When/And/etc).
@@ -537,19 +561,14 @@ public class RunDetailsView implements Serializable {
         this.featureIdToTreeNode.clear();
         Map<String, TreeNode<TreeItem>> groupNodes = new HashMap<>();
         Map<String, int[]> groupCounts = new HashMap<>();
-        Map<String, Integer> groupFlakyCounts = new HashMap<>();
 
         for (FeatureModel f : features) {
             if (f.groupPath() == null || f.groupPath().isEmpty()) continue;
             StringBuilder key = new StringBuilder();
-            int featureFlaky = featureFlakyCounts.getOrDefault(f.id(), 0);
             for (int i = 0; i < f.groupPath().size(); i++) {
                 if (i > 0) key.append(" / ");
                 key.append(f.groupPath().get(i));
                 addGroupCount(groupCounts, key.toString(), f.status());
-                if (featureFlaky > 0) {
-                    groupFlakyCounts.merge(key.toString(), featureFlaky, Integer::sum);
-                }
             }
         }
 
@@ -557,7 +576,7 @@ public class RunDetailsView implements Serializable {
         // If your XHTML uses <p:treeNode type="GROUP"> and <p:treeNode type="FEATURE">,
         // then nodes MUST be created with matching "type" strings or they will render blank.
         this.featureTreeRoot = new DefaultTreeNode<>("ROOT",
-                new TreeItem(TreeType.ROOT, "ROOT", null, null, List.of(), 0, 0, 0, 0, 0),
+                new TreeItem(TreeType.ROOT, "ROOT", null, null, List.of(), 0, 0, 0, 0),
                 null
         );
 
@@ -568,11 +587,10 @@ public class RunDetailsView implements Serializable {
             for (int i = 0; i < f.groupPath().size(); i++) {
                 if (i > 0) key.append(" / ");
                 key.append(f.groupPath().get(i));
-                parent = ensureGroupNode(parent, f.groupPath().get(i), key.toString(), groupNodes, groupCounts, groupFlakyCounts);
+                parent = ensureGroupNode(parent, f.groupPath().get(i), key.toString(), groupNodes, groupCounts);
             }
 
-            int featureFlaky = featureFlakyCounts.getOrDefault(f.id(), 0);
-            TreeItem leaf = new TreeItem(TreeType.FEATURE, f.title(), f.status(), f.id(), f.tags(), 0, 0, 0, 0, featureFlaky);
+            TreeItem leaf = new TreeItem(TreeType.FEATURE, f.title(), f.status(), f.id(), f.tags(), 0, 0, 0, 0);
             TreeNode<TreeItem> leafNode = new DefaultTreeNode<>("FEATURE", leaf, parent);
 
             featureIdToTreeNode.put(f.id(), leafNode);
@@ -587,15 +605,13 @@ public class RunDetailsView implements Serializable {
             String label,
             String pathKey,
             Map<String, TreeNode<TreeItem>> groupNodes,
-            Map<String, int[]> groupCounts,
-            Map<String, Integer> groupFlakyCounts
+            Map<String, int[]> groupCounts
     ) {
         TreeNode<TreeItem> existing = groupNodes.get(pathKey);
         if (existing != null) {
             return existing;
         }
         int[] counts = groupCounts.getOrDefault(pathKey, new int[4]);
-        int flakyCount = groupFlakyCounts.getOrDefault(pathKey, 0);
         TreeNode<TreeItem> created = new DefaultTreeNode<>("GROUP",
                 new TreeItem(
                         TreeType.GROUP,
@@ -606,8 +622,7 @@ public class RunDetailsView implements Serializable {
                         counts[0],
                         counts[1],
                         counts[2],
-                        counts[3],
-                        flakyCount
+                        counts[3]
                 ),
                 parent
         );
@@ -725,26 +740,44 @@ public class RunDetailsView implements Serializable {
     public List<RunStatus> getScenarioHistory(ScenarioModel sc) {
         if (selectedFeature == null || sc == null) return List.of();
         String key = scenarioKeyFor(selectedFeature, sc);
-        ScenarioHistory history = scenarioHistoryByKey.get(key);
-        return history == null ? List.of() : history.statuses();
+        List<RunStatus> history = scenarioHistoryByKey.get(key);
+        return history == null ? List.of() : history;
     }
 
     public List<RunStatus> scenarioHistory(ScenarioModel sc) {
         return getScenarioHistory(sc);
     }
 
-    public boolean isScenarioFlaky(ScenarioModel sc) {
-        if (selectedFeature == null || sc == null) return false;
-        return isScenarioFlaky(selectedFeature, sc);
-    }
+    public List<RunStatus> featureHistory(FeatureModel feature) {
+        if (feature == null || recentRuns == null || recentRuns.isEmpty()) return List.of();
 
-    public boolean scenarioFlaky(ScenarioModel sc) {
-        return isScenarioFlaky(sc);
-    }
+        Map<String, List<String>> statusesByRun = new LinkedHashMap<>();
+        for (RunOption r : recentRuns) {
+            statusesByRun.put(r.runFolder(), new ArrayList<>());
+        }
 
-    public int getSelectedFeatureFlakyCount() {
-        if (selectedFeature == null) return 0;
-        return featureFlakyCounts.getOrDefault(selectedFeature.id(), 0);
+        if (feature.scenarios() != null) {
+            for (ScenarioModel sc : feature.scenarios()) {
+                String key = scenarioKeyFor(feature, sc);
+                List<RunStatus> history = scenarioHistoryByKey.get(key);
+                if (history == null) continue;
+                for (RunStatus rs : history) {
+                    List<String> bucket = statusesByRun.get(rs.runFolder());
+                    if (bucket != null) {
+                        bucket.add(rs.status());
+                    }
+                }
+            }
+        }
+
+        List<RunStatus> out = new ArrayList<>();
+        for (Map.Entry<String, List<String>> entry : statusesByRun.entrySet()) {
+            String agg = aggregateStatus(entry.getValue());
+            if (!agg.isBlank()) {
+                out.add(new RunStatus(entry.getKey(), agg));
+            }
+        }
+        return out;
     }
 
     public String getSelectedFeatureFullTitle() {
@@ -777,6 +810,31 @@ public class RunDetailsView implements Serializable {
     public String joinTags(List<String> tags) {
         if (tags == null || tags.isEmpty()) return "";
         return String.join(" ", tags);
+    }
+
+    private static String aggregateStatus(List<String> statuses) {
+        if (statuses == null || statuses.isEmpty()) return "";
+        boolean sawPass = false;
+        boolean sawSkip = false;
+        boolean sawKnownBug = false;
+        boolean sawFail = false;
+
+        for (String status : statuses) {
+            String norm = RunHistoryAnalyzer.normalizeStatus(status);
+            switch (norm) {
+                case "FAIL" -> sawFail = true;
+                case "KNOWNBUG" -> sawKnownBug = true;
+                case "SKIP" -> sawSkip = true;
+                case "PASS" -> sawPass = true;
+                default -> { }
+            }
+        }
+
+        if (sawFail) return "FAIL";
+        if (sawKnownBug) return "KNOWNBUG";
+        if (sawSkip) return "SKIP";
+        if (sawPass) return "PASS";
+        return "UNKNOWN";
     }
 
     // ---------------------- time helpers ----------------------
@@ -949,8 +1007,7 @@ public class RunDetailsView implements Serializable {
             int passCount,
             int failCount,
             int knownBugCount,
-            int skipCount,
-            int flakyCount
+            int skipCount
     ) implements Serializable {}
 
     public record RunOption(
@@ -963,11 +1020,6 @@ public class RunDetailsView implements Serializable {
     public record RunStatus(
             String runFolder,
             String status
-    ) implements Serializable {}
-
-    public record ScenarioHistory(
-            List<RunStatus> statuses,
-            boolean flaky
     ) implements Serializable {}
 
     public record FeatureModel(
@@ -984,6 +1036,7 @@ public class RunDetailsView implements Serializable {
             String id,
             String name,
             String status,
+            String startTimeText,
             String durationText,
             List<String> tags,
             List<StepModel> steps
