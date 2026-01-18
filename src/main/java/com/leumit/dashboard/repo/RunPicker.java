@@ -1,6 +1,7 @@
 package com.leumit.dashboard.repo;
 
 import com.leumit.dashboard.model.ExtentSummary;
+import com.leumit.dashboard.run.ReportCache;
 import com.leumit.dashboard.run.ReportCutoff;
 import com.leumit.dashboard.run.SparkHtmlReportParser;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,14 @@ import java.util.stream.Stream;
 @Service
 @Slf4j
 public class RunPicker {
+  private final ReportCache reportCache;
+  private final RunPickerCache runPickerCache;
+
+  public RunPicker(ReportCache reportCache, RunPickerCache runPickerCache) {
+    this.reportCache = reportCache;
+    this.runPickerCache = runPickerCache;
+  }
+
   public Optional<PickedRun> pickLatest(Path baseDir, Pattern dirNamePattern) throws IOException {
     return pickLatestFast(baseDir, dirNamePattern);
   }
@@ -33,27 +42,8 @@ public class RunPicker {
     if (limit <= 0 || !Files.isDirectory(baseDir)) return List.of();
 
     long startNs = System.nanoTime();
-    int buffer = Math.max(limit * 3, limit + 10);
-    PriorityQueue<Candidate> top = new PriorityQueue<>(Comparator.comparing(Candidate::lastModified));
-    int[] matchedDirs = new int[1];
-    int[] candidates = new int[1];
-
-    long scanStartNs = System.nanoTime();
-    try (Stream<Path> s = Files.list(baseDir)) {
-      s.filter(Files::isDirectory)
-          .filter(p -> {
-            boolean matches = dirNamePattern.matcher(p.getFileName().toString()).matches();
-            if (matches) matchedDirs[0]++;
-            return matches;
-          })
-          .map(this::toCandidate)
-          .flatMap(Optional::stream)
-          .peek(c -> candidates[0]++)
-          .forEach(c -> pushCandidate(top, c, buffer));
-    }
-    long scanMs = (System.nanoTime() - scanStartNs) / 1_000_000;
-
-    List<Candidate> sorted = new ArrayList<>(top);
+    CandidateFetch fetch = fetchCandidates(baseDir, dirNamePattern);
+    List<Candidate> sorted = new ArrayList<>(fetch.candidates());
     sorted.sort((a, b) -> b.lastModified().compareTo(a.lastModified()));
 
     long summaryStartNs = System.nanoTime();
@@ -61,7 +51,7 @@ public class RunPicker {
     for (Candidate c : sorted) {
       if (out.size() >= limit) break;
       try {
-        ExtentSummary summary = SparkHtmlReportParser.parseSummary(c.reportPath());
+        ExtentSummary summary = reportCache.getSummary(c.reportPath());
         if (summary == null) continue;
         if (SparkHtmlReportParser.isBeforeCutoff(summary, c.reportPath(), ReportCutoff.CUTOFF_DATE)) {
           continue;
@@ -73,8 +63,9 @@ public class RunPicker {
     }
     long summaryMs = (System.nanoTime() - summaryStartNs) / 1_000_000;
     long totalMs = (System.nanoTime() - startNs) / 1_000_000;
-    log.info("RunPicker.pickLatestRuns baseDir={} limit={} matchedDirs={} candidates={} selected={} scanMs={} summaryMs={} totalMs={}",
-            baseDir, limit, matchedDirs[0], candidates[0], out.size(), scanMs, summaryMs, totalMs);
+    log.info("RunPicker.pickLatestRuns baseDir={} limit={} matchedDirs={} candidates={} selected={} cache={} scanMs={} summaryMs={} totalMs={}",
+            baseDir, limit, fetch.matchedDirs(), fetch.candidates().size(), out.size(),
+            fetch.cacheHit() ? "hit" : "miss", fetch.scanMs(), summaryMs, totalMs);
     return out;
   }
 
@@ -82,11 +73,46 @@ public class RunPicker {
     if (!Files.isDirectory(baseDir)) return Optional.empty();
 
     long startNs = System.nanoTime();
-    Candidate[] best = new Candidate[1];
-    int[] matchedDirs = new int[1];
-    int[] candidates = new int[1];
+    CandidateFetch fetch = fetchCandidates(baseDir, dirNamePattern);
+    Candidate best = bestCandidate(fetch.candidates());
+
+    if (best == null) {
+      long totalMs = (System.nanoTime() - startNs) / 1_000_000;
+      log.info("RunPicker.pickLatestFast baseDir={} matchedDirs={} candidates=0 cache={} scanMs={} totalMs={}",
+              baseDir, fetch.matchedDirs(), fetch.cacheHit() ? "hit" : "miss", fetch.scanMs(), totalMs);
+      return Optional.empty();
+    }
+
+    long summaryStartNs = System.nanoTime();
+    try {
+      ExtentSummary summary = reportCache.getSummary(best.reportPath());
+      if (summary == null) return Optional.empty();
+      if (SparkHtmlReportParser.isBeforeCutoff(summary, best.reportPath(), ReportCutoff.CUTOFF_DATE)) {
+        return Optional.empty();
+      }
+      long summaryMs = (System.nanoTime() - summaryStartNs) / 1_000_000;
+      long totalMs = (System.nanoTime() - startNs) / 1_000_000;
+      log.info("RunPicker.pickLatestFast baseDir={} matchedDirs={} candidates={} cache={} scanMs={} summaryMs={} totalMs={}",
+              baseDir, fetch.matchedDirs(), fetch.candidates().size(), fetch.cacheHit() ? "hit" : "miss",
+              fetch.scanMs(), summaryMs, totalMs);
+      return Optional.of(new PickedRun(best.runDir(), best.reportPath(), best.lastModified().toMillis(), summary));
+    } catch (IOException ignored) {
+      return Optional.empty();
+    }
+  }
+
+  private CandidateFetch fetchCandidates(Path baseDir, Pattern dirNamePattern) throws IOException {
+    Optional<RunPickerCache.CachedCandidates> cached = runPickerCache.get(baseDir, dirNamePattern);
+    if (cached.isPresent()) {
+      RunPickerCache.CachedCandidates hit = cached.get();
+      List<Candidate> candidates = candidatesFromCache(hit);
+      return new CandidateFetch(candidates, hit.matchedDirs(), true, 0);
+    }
 
     long scanStartNs = System.nanoTime();
+    int[] matchedDirs = new int[1];
+    List<Candidate> candidates = new ArrayList<>();
+
     try (Stream<Path> s = Files.list(baseDir)) {
       s.filter(Files::isDirectory)
           .filter(p -> {
@@ -96,38 +122,46 @@ public class RunPicker {
           })
           .map(this::toCandidate)
           .flatMap(Optional::stream)
-          .forEach(c -> {
-            candidates[0]++;
-            if (best[0] == null || c.lastModified().compareTo(best[0].lastModified()) > 0) {
-              best[0] = c;
-            }
-          });
+          .forEach(candidates::add);
     }
+
     long scanMs = (System.nanoTime() - scanStartNs) / 1_000_000;
+    runPickerCache.put(baseDir, dirNamePattern,
+            new RunPickerCache.CachedCandidates(System.currentTimeMillis(), matchedDirs[0], toEntries(candidates)));
+    return new CandidateFetch(candidates, matchedDirs[0], false, scanMs);
+  }
 
-    Candidate chosen = best[0];
-    if (chosen == null) {
-      long totalMs = (System.nanoTime() - startNs) / 1_000_000;
-      log.info("RunPicker.pickLatestFast baseDir={} matchedDirs={} candidates=0 scanMs={} totalMs={}",
-              baseDir, matchedDirs[0], scanMs, totalMs);
-      return Optional.empty();
-    }
-
-    long summaryStartNs = System.nanoTime();
-    try {
-      ExtentSummary summary = SparkHtmlReportParser.parseSummary(chosen.reportPath());
-      if (summary == null) return Optional.empty();
-      if (SparkHtmlReportParser.isBeforeCutoff(summary, chosen.reportPath(), ReportCutoff.CUTOFF_DATE)) {
-        return Optional.empty();
+  private static Candidate bestCandidate(List<Candidate> candidates) {
+    Candidate best = null;
+    for (Candidate c : candidates) {
+      if (best == null || c.lastModified().compareTo(best.lastModified()) > 0) {
+        best = c;
       }
-      long summaryMs = (System.nanoTime() - summaryStartNs) / 1_000_000;
-      long totalMs = (System.nanoTime() - startNs) / 1_000_000;
-      log.info("RunPicker.pickLatestFast baseDir={} matchedDirs={} candidates={} scanMs={} summaryMs={} totalMs={}",
-              baseDir, matchedDirs[0], candidates[0], scanMs, summaryMs, totalMs);
-      return Optional.of(new PickedRun(chosen.runDir(), chosen.reportPath(), chosen.lastModified().toMillis(), summary));
-    } catch (IOException ignored) {
-      return Optional.empty();
     }
+    return best;
+  }
+
+  private static List<RunPickerCache.CandidateEntry> toEntries(List<Candidate> candidates) {
+    List<RunPickerCache.CandidateEntry> out = new ArrayList<>();
+    for (Candidate c : candidates) {
+      out.add(new RunPickerCache.CandidateEntry(
+              c.runDir().toString(),
+              c.reportPath().toString(),
+              c.lastModified().toMillis()
+      ));
+    }
+    return out;
+  }
+
+  private static List<Candidate> candidatesFromCache(RunPickerCache.CachedCandidates cached) {
+    List<Candidate> out = new ArrayList<>();
+    for (RunPickerCache.CandidateEntry entry : cached.candidates()) {
+      Path runDir = Path.of(entry.runDir());
+      Path reportPath = Path.of(entry.reportPath());
+      if (!Files.exists(reportPath)) continue;
+      out.add(new Candidate(runDir, reportPath, FileTime.fromMillis(entry.lastModifiedMillis())));
+    }
+    return out;
   }
 
   private Optional<Candidate> toCandidate(Path runDir) {
@@ -165,6 +199,8 @@ public class RunPicker {
   }
 
   private record Candidate(Path runDir, Path reportPath, FileTime lastModified) {}
+
+  private record CandidateFetch(List<Candidate> candidates, int matchedDirs, boolean cacheHit, long scanMs) {}
 
   public record PickedRun(Path runDir, Path reportPath, long lastModifiedMillis, ExtentSummary summary) {}
 }
