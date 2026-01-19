@@ -61,6 +61,9 @@
             border: 0;
             padding: 0;
             direction: rtl;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
         .details-menubar .ui-menubar-root-list {
             margin: 0;
@@ -69,7 +72,8 @@
             gap: 6px;
             align-items: center;
             direction: rtl;
-            flex-direction: row-reverse;
+            flex: 1 1 auto;
+            justify-content: center;
         }
         .details-menubar .ui-menuitem-link {
             color: var(--brand-ink);
@@ -103,6 +107,10 @@
             display: inline-flex;
             align-items: center;
             gap: 10px;
+            flex: 0 0 auto;
+        }
+        .details-menubar .ui-menubar-custom-end {
+            margin-inline-start: auto;
         }
         .menu-brand {
             display: inline-flex;
@@ -122,6 +130,19 @@
             align-items: center;
             gap: 6px;
             flex-wrap: wrap;
+        }
+        .menu-back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-weight: 700;
+            color: var(--brand-ink);
+            text-decoration: none;
+        }
+        .menu-back-link .pi {
+            font-size: 14px;
         }
         .menuBadge {
             display: inline-flex;
@@ -755,41 +776,31 @@
     <div class="details-menubar-wrap">
         <p:menubar styleClass="details-menubar">
             <f:facet name="start">
-                <div class="menu-badges">
-                    <ui:fragment rendered="#{not empty runDetailsView.item}">
-                        <span class="menuBadge menuBadge-env">
-                            <span class="menuBadgeLabel">סביבה</span>
-                            <span class="menuBadgeValue">#{runDetailsView.item}</span>
-                        </span>
-                    </ui:fragment>
-                    <ui:fragment rendered="#{not empty runDetailsView.summary}">
-                        <span class="menuBadge menuBadge-total">
-                            <span class="menuBadgeLabel">סה״כ</span>
-                            <span class="menuBadgeValue">#{runDetailsView.summary.totals.total}</span>
-                        </span>
-                        <span class="menuBadge st-pass">
-                            <span class="menuBadgeLabel">עבר</span>
-                            <span class="menuBadgeValue">#{runDetailsView.summary.totals.pass}</span>
-                        </span>
-                        <span class="menuBadge st-fail">
-                            <span class="menuBadgeLabel">נכשל</span>
-                            <span class="menuBadgeValue">#{runDetailsView.summary.totals.fail}</span>
-                        </span>
-                        <span class="menuBadge st-knownbug">
-                            <span class="menuBadgeLabel">באג</span>
-                            <span class="menuBadgeValue">#{runDetailsView.summary.totals.knownBug}</span>
-                        </span>
-                        <span class="menuBadge st-skip">
-                            <span class="menuBadgeLabel">דולג</span>
-                            <span class="menuBadgeValue">#{runDetailsView.summary.totals.skip}</span>
-                        </span>
-                    </ui:fragment>
+                <div class="menu-start">
+                    <div class="menu-brand">
+                        <h:graphicImage value="#{request.contextPath}/resources/images/tamar.svg"
+                                        styleClass="menu-logo" />
+                        <span>#{runDetailsView.filter}</span>
+                    </div>
+                    <div class="menu-badges">
+                        <ui:fragment rendered="#{not empty runDetailsView.item}">
+                            <span class="menuBadge menuBadge-env">
+                                <span class="menuBadgeLabel">סביבה</span>
+                                <span class="menuBadgeValue">#{runDetailsView.item}</span>
+                            </span>
+                        </ui:fragment>
+                        <ui:fragment rendered="#{not empty runDetailsView.summary}">
+                            <span class="menuBadge menuBadge-total">
+                                <span class="menuBadgeLabel">סה״כ</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.total}</span>
+                            </span>
+                        </ui:fragment>
+                    </div>
                 </div>
             </f:facet>
 
-            <p:menuitem value="חזרה" icon="pi pi-arrow-right" outcome="index" />
-
-            <p:submenu label="#{runDetailsView.runLabel(runDetailsView.run)}" icon="pi pi-calendar">
+            <p:submenu label="#{empty runDetailsView.run ? 'בחירת תאריך' : runDetailsView.runLabel(runDetailsView.run)}"
+                       icon="pi pi-calendar">
                 <ui:fragment rendered="#{runDetailsView.hasHistory}">
                     <ui:repeat value="#{runDetailsView.recentRuns}" var="r">
                         <p:menuitem value="#{r.label}"
@@ -808,11 +819,10 @@
             </p:submenu>
 
             <f:facet name="end">
-                <div class="menu-brand">
-                    <h:graphicImage value="#{request.contextPath}/resources/images/tamar.svg"
-                                    styleClass="menu-logo" />
-                    <span>#{runDetailsView.filter}</span>
-                </div>
+                <h:link outcome="index" styleClass="ui-menuitem-link menu-back-link">
+                    <i class="pi pi-arrow-right"></i>
+                    <span>חזרה</span>
+                </h:link>
             </f:facet>
         </p:menubar>
     </div>
@@ -1327,3 +1337,8 @@
     </script>
 </h:body>
 </html>
+        .menu-start {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
