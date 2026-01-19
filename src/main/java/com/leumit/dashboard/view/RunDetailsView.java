@@ -13,6 +13,10 @@ import com.leumit.dashboard.run.SparkHtmlReportParser.ParsedReport;
 import com.leumit.dashboard.run.SparkHtmlReportParser.Scenario;
 import com.leumit.dashboard.run.SparkHtmlReportParser.Step;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.primefaces.event.NodeSelectEvent;
 import org.primefaces.model.DefaultTreeNode;
 import org.primefaces.model.TreeNode;
@@ -57,6 +61,7 @@ public class RunDetailsView implements Serializable {
             "<p[^>]*class=['\"]localtime['\"][^>]*>([^<]+)</p>",
             Pattern.CASE_INSENSITIVE
     );
+    private static final String TABLE_BORDERED_CLASS = "table-bordered";
     private static final int HISTORY_LIMIT = 4;
 
     private final DashboardFiltersProperties props;
@@ -495,12 +500,129 @@ public class RunDetailsView implements Serializable {
             String rawDetails = l == null ? "" : (l.detailsHtml() == null ? "" : l.detailsHtml());
             long durationMillis = extractDurationMillis(rawDetails);
             String durationText = durationMillis >= 0 ? formatStepDuration(Duration.ofMillis(durationMillis)) : "";
-            String details = stripExtentTimestamps(rawDetails);
+            String cleaned = stripExtentTimestamps(rawDetails);
+            ParsedLogHtml parsed = parseLogHtml(cleaned);
+            String details = parsed.html();
             String mediaPath = l == null ? null : l.mediaPath();
 
-            out.add(new LogEntry("", "", details, mediaPath, durationText, durationMillis));
+            out.add(new LogEntry("", "", details, mediaPath, durationText, durationMillis, parsed.tables()));
         }
         return out;
+    }
+
+    private static ParsedLogHtml parseLogHtml(String html) {
+        if (html == null || html.isBlank()) {
+            return new ParsedLogHtml("", List.of());
+        }
+        if (!html.contains(TABLE_BORDERED_CLASS)) {
+            return new ParsedLogHtml(html.trim(), List.of());
+        }
+
+        Document doc = Jsoup.parseBodyFragment(html);
+        Elements tables = doc.select("table." + TABLE_BORDERED_CLASS);
+        if (tables.isEmpty()) {
+            return new ParsedLogHtml(html.trim(), List.of());
+        }
+
+        List<LogTable> out = new ArrayList<>();
+        for (Element table : tables) {
+            out.add(parseTable(table));
+            table.remove();
+        }
+
+        String cleaned = doc.body() == null ? "" : doc.body().html();
+        return new ParsedLogHtml(cleaned.trim(), out);
+    }
+
+    private static LogTable parseTable(Element table) {
+        if (table == null) return new LogTable(List.of(), List.of());
+
+        List<String> headers = new ArrayList<>();
+        List<List<String>> rows = new ArrayList<>();
+
+        Elements headerCells = new Elements();
+        Elements dataRows;
+
+        Element thead = table.selectFirst("thead");
+        if (thead != null) {
+            headerCells = thead.select("th,td");
+            dataRows = table.select("tbody tr");
+            if (dataRows.isEmpty()) {
+                dataRows = table.select("tr");
+                dataRows.removeIf(tr -> tr.parents().stream().anyMatch(p -> "thead".equals(p.tagName())));
+            }
+        } else {
+            dataRows = table.select("tr");
+            if (!dataRows.isEmpty() && !dataRows.get(0).select("th").isEmpty()) {
+                headerCells = dataRows.get(0).select("th,td");
+                dataRows = dataRows.subList(1, dataRows.size());
+            }
+        }
+
+        if (!headerCells.isEmpty()) {
+            headers = extractCellTexts(headerCells);
+        }
+
+        int maxCols = headers.size();
+        for (Element row : dataRows) {
+            Elements cells = row.select("th,td");
+            if (cells.isEmpty()) continue;
+            List<String> values = new ArrayList<>();
+            for (Element cell : cells) {
+                String text = cleanCellText(cell);
+                int colspan = parseColspan(cell);
+                for (int i = 0; i < colspan; i++) {
+                    values.add(text);
+                }
+            }
+            maxCols = Math.max(maxCols, values.size());
+            rows.add(values);
+        }
+
+        if (headers.isEmpty()) {
+            for (int i = 1; i <= maxCols; i++) {
+                headers.add("Col " + i);
+            }
+        } else if (headers.size() < maxCols) {
+            for (int i = headers.size() + 1; i <= maxCols; i++) {
+                headers.add("Col " + i);
+            }
+        }
+
+        for (List<String> row : rows) {
+            while (row.size() < headers.size()) {
+                row.add("");
+            }
+        }
+
+        return new LogTable(headers, rows);
+    }
+
+    private static List<String> extractCellTexts(Elements cells) {
+        List<String> out = new ArrayList<>();
+        for (Element cell : cells) {
+            out.add(cleanCellText(cell));
+        }
+        return out;
+    }
+
+    private static String cleanCellText(Element cell) {
+        if (cell == null) return "";
+        String text = cell.text();
+        if (text == null) return "";
+        return text.replaceAll("\\s+", " ").trim();
+    }
+
+    private static int parseColspan(Element cell) {
+        if (cell == null) return 1;
+        String raw = cell.attr("colspan");
+        if (raw == null || raw.isBlank()) return 1;
+        try {
+            int v = Integer.parseInt(raw.trim());
+            return Math.max(1, v);
+        } catch (NumberFormatException ignored) {
+            return 1;
+        }
     }
 
     private static String scenarioDurationFromSteps(List<StepModel> steps) {
@@ -1088,8 +1210,16 @@ public class RunDetailsView implements Serializable {
             String detailsHtml,
             String mediaPath,
             String durationText,
-            long durationMillis
+            long durationMillis,
+            List<LogTable> tables
     ) implements Serializable {}
 
     private record StepLabel(String keyword, String text) {}
+
+    private record ParsedLogHtml(String html, List<LogTable> tables) {}
+
+    public record LogTable(
+            List<String> headers,
+            List<List<String>> rows
+    ) implements Serializable {}
 }

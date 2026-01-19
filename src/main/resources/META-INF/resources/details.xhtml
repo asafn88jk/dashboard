@@ -720,6 +720,37 @@
             display: inline-block;
         }
 
+        .logTableWrap {
+            margin-top: 8px;
+            overflow-x: auto;
+        }
+        .logTableToolbar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .logTableBtn {
+            border-radius: 8px;
+        }
+        .logDataTable {
+            direction: rtl;
+        }
+        .logDataTable .ui-datatable-tablewrapper {
+            overflow-x: auto;
+        }
+        .logDataTable table {
+            min-width: 640px;
+        }
+        .logDataTable .ui-column-title {
+            font-weight: 700;
+        }
+        .logDataTable .ui-column-filter {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
         .lightbox {
             position: fixed;
             inset: 0;
@@ -992,6 +1023,45 @@
                                                     <div class="logBody">
                                                         <ui:fragment rendered="#{not empty lg.detailsHtml}">
                                                             <h:outputText value="#{lg.detailsHtml}" escape="false"/>
+                                                        </ui:fragment>
+
+                                                        <ui:fragment rendered="#{not empty lg.tables}">
+                                                            <ui:repeat value="#{lg.tables}" var="tbl">
+                                                                <div class="logTableWrap">
+                                                                    <div class="logTableToolbar">
+                                                                        <p:commandButton id="colToggle"
+                                                                                         type="button"
+                                                                                         icon="pi pi-sliders-h"
+                                                                                         styleClass="logTableBtn"
+                                                                                         title="בחר עמודות"/>
+                                                                        <p:columnToggler datasource="logTable"
+                                                                                         trigger="colToggle"/>
+                                                                    </div>
+                                                                    <p:dataTable id="logTable"
+                                                                                 value="#{tbl.rows}"
+                                                                                 var="row"
+                                                                                 paginator="true"
+                                                                                 rows="50"
+                                                                                 rowsPerPageTemplate="50"
+                                                                                 paginatorPosition="bottom"
+                                                                                 scrollable="true"
+                                                                                 scrollWidth="100%"
+                                                                                 sortMode="multiple"
+                                                                                 emptyMessage="אין נתונים"
+                                                                                 styleClass="logDataTable">
+                                                                        <p:columns value="#{tbl.headers}"
+                                                                                   var="col"
+                                                                                   columnIndexVar="colIdx"
+                                                                                   sortable="true"
+                                                                                   sortBy="#{row[colIdx]}"
+                                                                                   filterBy="#{row[colIdx]}"
+                                                                                   filterMatchMode="contains">
+                                                                            <f:facet name="header">#{col}</f:facet>
+                                                                            <h:outputText value="#{row[colIdx]}"/>
+                                                                        </p:columns>
+                                                                    </p:dataTable>
+                                                                </div>
+                                                            </ui:repeat>
                                                         </ui:fragment>
 
                                                         <ui:fragment rendered="#{not empty lg.mediaPath}">
@@ -1337,8 +1407,3 @@
     </script>
 </h:body>
 </html>
-        .menu-start {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-        }
