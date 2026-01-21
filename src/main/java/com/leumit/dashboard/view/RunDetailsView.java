@@ -64,6 +64,8 @@ public class RunDetailsView implements Serializable {
     );
     private static final DateTimeFormatter RUN_LABEL_FMT =
             DateTimeFormatter.ofPattern("dd.MM HH:mm", Locale.ENGLISH);
+    private static final Pattern ENV_PATTERN = Pattern.compile("\\b(TS|PR|HD|UAT|SIT|QA|DEV)\\b",
+            Pattern.CASE_INSENSITIVE);
     private static final Pattern LOG_TS_PATTERN = Pattern.compile(
             "<p[^>]*class=['\"]timestamp['\"][^>]*>([^<]+)</p>",
             Pattern.CASE_INSENSITIVE
@@ -909,9 +911,29 @@ public class RunDetailsView implements Serializable {
 
     public String getRunMenuLabel() { return runMenuLabel; }
 
+    public String getEnvironmentLabel() {
+        String env = extractEnvironmentToken(run);
+        if (env.isBlank() && runDir != null) {
+            env = extractEnvironmentToken(runDir.getFileName().toString());
+        }
+        if (env.isBlank()) {
+            env = extractEnvironmentToken(item);
+        }
+        return env;
+    }
+
     public String runLabel(String runFolder) {
         if (runFolder == null) return "";
         return runLabelsByFolder.getOrDefault(runFolder, runFolder);
+    }
+
+    private static String extractEnvironmentToken(String text) {
+        if (text == null || text.isBlank()) return "";
+        Matcher m = ENV_PATTERN.matcher(text);
+        if (m.find()) {
+            return m.group(1).toUpperCase(Locale.ROOT);
+        }
+        return "";
     }
 
     private void buildMenubarModel() {

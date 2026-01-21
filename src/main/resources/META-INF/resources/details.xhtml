@@ -66,6 +66,8 @@
             align-items: center;
             justify-content: flex-start;
             gap: 12px;
+            font-size: 13px;
+            overflow: visible;
         }
         .details-menubar.ui-widget,
         .details-menubar.ui-widget-content {
@@ -99,6 +101,7 @@
         }
         .details-menubar .ui-menu-list .ui-menuitem-link {
             color: #111827;
+            font-size: 13px;
         }
         .details-menubar .ui-menu-list .ui-menuitem-link .ui-menuitem-icon {
             color: #6b7280;
@@ -122,7 +125,7 @@
             gap: 8px;
             color: #0f172a;
             font-weight: 800;
-            font-size: 13px;
+            font-size: 14px;
             flex-direction: row-reverse;
             text-shadow: none;
         }
@@ -137,10 +140,37 @@
             flex-wrap: wrap;
         }
         .menu-start {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            column-gap: 16px;
+            row-gap: 6px;
+            width: 100%;
+            min-width: 0;
+        }
+        .menu-left {
             display: inline-flex;
             align-items: center;
             gap: 10px;
+            white-space: nowrap;
+            grid-column: 1;
+            flex-wrap: nowrap;
+        }
+        .menu-meta {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
             flex-wrap: wrap;
+            min-width: 0;
+            grid-column: 2;
+        }
+        .menu-totals {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            grid-column: 3;
         }
         .menu-back-link {
             display: inline-flex;
@@ -153,6 +183,7 @@
             text-decoration: none;
             border: 1px solid #e2e8f0;
             background: #f8fafc;
+            font-size: 13px;
         }
         .menu-back-link .pi {
             font-size: 14px;
@@ -163,7 +194,7 @@
             gap: 6px;
             padding: 3px 8px;
             border-radius: 999px;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 800;
             border: 1px solid #e2e8f0;
             background: #f8fafc;
@@ -204,12 +235,15 @@
         .menu-run-picker {
             border-radius: 8px;
             font-weight: 700;
+            font-size: 13px;
+            white-space: nowrap;
         }
         .menu-run-picker .ui-button {
             border-radius: 8px;
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             color: #0f172a;
+            font-size: 13px;
         }
         .menu-run-picker .ui-button:hover,
         .menu-run-picker .ui-button:focus {
@@ -218,8 +252,9 @@
         .menu-run-picker .ui-button .ui-button-icon-left {
             color: #334155;
         }
-        .details-menubar .menu-current > .ui-menuitem-link {
+        .menu-current > .ui-menuitem-link {
             background: #e2e8f0;
+            font-weight: 800;
         }
 
         .page {
@@ -942,33 +977,34 @@
             <p:menubar styleClass="details-menubar">
                 <f:facet name="start">
                     <div class="menu-start">
-                        <h:link outcome="index" styleClass="ui-menuitem-link menu-back-link">
-                            <i class="pi pi-arrow-right"></i>
-                            <span>חזרה</span>
-                        </h:link>
+                        <div class="menu-left">
+                            <h:link outcome="index" styleClass="ui-menuitem-link menu-back-link">
+                                <i class="pi pi-arrow-right"></i>
+                                <span>חזרה</span>
+                            </h:link>
 
-                        <div class="menu-brand">
-                            <h:graphicImage value="#{request.contextPath}/resources/images/tamar.svg"
-                                            styleClass="menu-logo" />
-                            <span>#{runDetailsView.filter}</span>
+                            <div class="menu-brand">
+                                <h:graphicImage value="#{request.contextPath}/resources/images/tamar.svg"
+                                                styleClass="menu-logo" />
+                            </div>
+
+                            <p:menuButton value="#{runDetailsView.runMenuLabel}"
+                                          icon="pi pi-calendar"
+                                          model="#{runDetailsView.menubarModel}"
+                                          styleClass="menu-run-picker" />
                         </div>
 
-                        <p:menuButton value="#{runDetailsView.runMenuLabel}"
-                                      icon="pi pi-calendar"
-                                      model="#{runDetailsView.menubarModel}"
-                                      styleClass="menu-run-picker" />
-
                         <div class="menu-badges menu-meta">
-                            <ui:fragment rendered="#{not empty runDetailsView.filter}">
-                                <span class="menuBadge">
-                                    <span class="menuBadgeLabel">סט הרצה</span>
-                                    <span class="menuBadgeValue">#{runDetailsView.filter}</span>
-                                </span>
-                            </ui:fragment>
                             <ui:fragment rendered="#{not empty runDetailsView.item}">
                                 <span class="menuBadge">
-                                    <span class="menuBadgeLabel">סביבה</span>
+                                    <span class="menuBadgeLabel">סט הרצה</span>
                                     <span class="menuBadgeValue">#{runDetailsView.item}</span>
+                                </span>
+                            </ui:fragment>
+                            <ui:fragment rendered="#{not empty runDetailsView.environmentLabel}">
+                                <span class="menuBadge">
+                                    <span class="menuBadgeLabel">סביבה</span>
+                                    <span class="menuBadgeValue">#{runDetailsView.environmentLabel}</span>
                                 </span>
                             </ui:fragment>
                             <ui:fragment rendered="#{not empty runDetailsView.summary}">
@@ -1018,52 +1054,11 @@
     </div>
 
     <div class="page">
-
-        <h:panelGroup id="titleBar" layout="block" styleClass="topCard">
-            <div class="topRow">
-                <div>
-                    <div class="title">
-                        #{runDetailsView.filter} • #{runDetailsView.item} • #{runDetailsView.run}
-                    </div>
-                    <div class="meta">
-                        משך: #{runDetailsView.runDurationText()}
-                        <span style="margin:0 8px;">|</span>
-                        DIR: #{runDetailsView.runDir}
-                    </div>
-                    <ui:fragment rendered="#{runDetailsView.hasHistory}">
-                        <div class="runSwitcher">
-                            <span class="runSwitcherLabel">Runs:</span>
-                            <ui:repeat value="#{runDetailsView.recentRuns}" var="r">
-                                <h:link outcome="details"
-                                        styleClass="runChip #{r.current ? 'is-active' : ''}"
-                                        title="#{r.tooltip}">
-                                    <f:param name="filter" value="#{runDetailsView.filter}" />
-                                    <f:param name="item" value="#{runDetailsView.item}" />
-                                    <f:param name="run" value="#{r.runFolder}" />
-                                    <h:outputText value="#{r.label}" />
-                                </h:link>
-                            </ui:repeat>
-                        </div>
-                    </ui:fragment>
-                </div>
-
-                <div class="meta" style="text-align:left;">
-                    <ui:fragment rendered="#{not empty runDetailsView.summary}">
-                        סה״כ: #{runDetailsView.summary.totals.total}
-                        | עבר: #{runDetailsView.summary.totals.pass}
-                        | נכשל: #{runDetailsView.summary.totals.fail}
-                        | באג ידוע: #{runDetailsView.summary.totals.knownBug}
-                        | דולג: #{runDetailsView.summary.totals.skip}
-                    </ui:fragment>
-                </div>
+        <ui:fragment rendered="#{not empty runDetailsView.error}">
+            <div class="errorBox">
+                ERROR: #{runDetailsView.error}
             </div>
-
-            <ui:fragment rendered="#{not empty runDetailsView.error}">
-                <div class="errorBox">
-                    ERROR: #{runDetailsView.error}
-                </div>
-            </ui:fragment>
-        </h:panelGroup>
+        </ui:fragment>
 
         <h:form id="form" prependId="false">
 
@@ -1323,7 +1318,7 @@
                         <p:ajax event="select"
                                 listener="#{runDetailsView.onTreeSelect}"
                                 process="@this"
-                                update="contentPane :titleBar"/>
+                                update="contentPane"/>
 
                         <p:treeNode type="GROUP">
                             <div class="treeRow" data-node-type="group">
