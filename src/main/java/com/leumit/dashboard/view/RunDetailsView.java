@@ -18,6 +18,10 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.primefaces.event.NodeSelectEvent;
+import org.primefaces.model.menu.DefaultMenuItem;
+import org.primefaces.model.menu.DefaultMenuModel;
+import org.primefaces.model.menu.DefaultSubMenu;
+import org.primefaces.model.menu.MenuModel;
 import org.primefaces.model.DefaultTreeNode;
 import org.primefaces.model.TreeNode;
 import org.springframework.context.annotation.Scope;
@@ -93,6 +97,7 @@ public class RunDetailsView implements Serializable {
     private List<RunOption> recentRuns = List.of();
     private final Map<String, String> runLabelsByFolder = new HashMap<>();
     private final Map<String, List<RunStatus>> scenarioHistoryByKey = new HashMap<>();
+    private MenuModel menubarModel = new DefaultMenuModel();
 
     public RunDetailsView(DashboardFiltersProperties props, RunPicker runPicker, ReportCache reportCache) {
         this.props = props;
@@ -178,6 +183,7 @@ public class RunDetailsView implements Serializable {
             this.recentRuns = List.of();
             this.runLabelsByFolder.clear();
             this.scenarioHistoryByKey.clear();
+            buildMenubarModel();
         }
     }
 
@@ -290,6 +296,7 @@ public class RunDetailsView implements Serializable {
             options.add(new RunOption(runFolder, label, tooltip, Objects.equals(runFolder, run)));
         }
         recentRuns = options;
+        buildMenubarModel();
 
         Path currentReportPath = reportPath == null ? null : reportPath.toAbsolutePath().normalize();
         Map<String, String> currentStatuses = currentReportPath == null
@@ -555,7 +562,7 @@ public class RunDetailsView implements Serializable {
             dataRows = table.select("tr");
             if (!dataRows.isEmpty() && !dataRows.get(0).select("th").isEmpty()) {
                 headerCells = dataRows.get(0).select("th,td");
-                dataRows = dataRows.subList(1, dataRows.size());
+                dataRows = new Elements(dataRows.subList(1, dataRows.size()));
             }
         }
 
@@ -884,9 +891,44 @@ public class RunDetailsView implements Serializable {
 
     public List<RunOption> getRecentRuns() { return recentRuns; }
 
+    public MenuModel getMenubarModel() { return menubarModel; }
+
     public String runLabel(String runFolder) {
         if (runFolder == null) return "";
         return runLabelsByFolder.getOrDefault(runFolder, runFolder);
+    }
+
+    private void buildMenubarModel() {
+        DefaultMenuModel model = new DefaultMenuModel();
+        String label = (run == null || run.isBlank()) ? "בחירת תאריך" : runLabel(run);
+        DefaultSubMenu submenu = DefaultSubMenu.builder()
+                .label(label)
+                .icon("pi pi-calendar")
+                .build();
+
+        if (recentRuns == null || recentRuns.isEmpty()) {
+            DefaultMenuItem empty = DefaultMenuItem.builder()
+                    .value("ללא היסטוריה")
+                    .disabled(true)
+                    .build();
+            submenu.addElement(empty);
+        } else {
+            for (RunOption r : recentRuns) {
+                DefaultMenuItem item = DefaultMenuItem.builder()
+                        .value(r.label())
+                        .outcome("details")
+                        .title(r.tooltip())
+                        .styleClass(r.current() ? "menu-current" : null)
+                        .build();
+                item.setParam("filter", filter);
+                item.setParam("item", this.item);
+                item.setParam("run", r.runFolder());
+                submenu.addElement(item);
+            }
+        }
+
+        model.addElement(submenu);
+        this.menubarModel = model;
     }
 
     public List<RunStatus> getScenarioHistory(ScenarioModel sc) {
