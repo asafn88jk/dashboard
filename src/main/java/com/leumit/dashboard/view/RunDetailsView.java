@@ -432,6 +432,7 @@ public class RunDetailsView implements Serializable {
             LocalDateTime et = parseExtent(f.endTime());
             String durationText = formatDurationSafe(st, et);
             List<String> featureTags = f.tags() == null ? List.of() : f.tags();
+            String descriptionHtml = f.descriptionHtml() == null ? "" : f.descriptionHtml();
 
             List<ScenarioModel> scenarios = new ArrayList<>();
             for (Scenario sc : f.scenarios()) {
@@ -477,6 +478,7 @@ public class RunDetailsView implements Serializable {
                     f.status(),
                     durationText,
                     featureTags,
+                    descriptionHtml,
                     scenarios
             ));
         }
@@ -1223,6 +1225,7 @@ public class RunDetailsView implements Serializable {
             String status,
             String durationText,
             List<String> tags,
+            String descriptionHtml,
             List<ScenarioModel> scenarios
     ) implements Serializable {}
 

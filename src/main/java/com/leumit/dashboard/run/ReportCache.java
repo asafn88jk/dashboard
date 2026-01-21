@@ -81,6 +81,12 @@ public class ReportCache {
 
         CachedReport cached = read(path.toString(), lastModified);
         if (cached != null) {
+            if (needsDescriptionRefresh(cached.features())) {
+                List<Feature> features = SparkHtmlReportParser.parseFeaturesNoLogs(path);
+                CachedReport refreshed = new CachedReport(cached.summary(), features);
+                write(path.toString(), lastModified, refreshed);
+                return refreshed;
+            }
             return cached;
         }
 
@@ -191,6 +197,14 @@ public class ReportCache {
         }
 
         return out;
+    }
+
+    private static boolean needsDescriptionRefresh(List<Feature> features) {
+        if (features == null || features.isEmpty()) return false;
+        for (Feature f : features) {
+            if (f.descriptionHtml() == null) return true;
+        }
+        return false;
     }
 
     private static List<String> parseArrowPath(String s) {

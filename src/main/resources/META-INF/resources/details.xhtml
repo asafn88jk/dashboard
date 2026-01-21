@@ -330,6 +330,13 @@
             min-width: 0;
             flex: 1 1 auto;
         }
+        .featureDesc {
+            font-size: 12px;
+            color: #475569;
+            line-height: 1.4;
+            text-align: right;
+            direction: rtl;
+        }
         .featureMetaBadges {
             display: inline-flex;
             align-items: center;
@@ -747,7 +754,6 @@
 
         .logTableWrap {
             margin-top: 8px;
-            overflow-x: auto;
         }
         .logTableToolbar {
             display: flex;
@@ -766,14 +772,37 @@
             overflow-x: auto;
         }
         .logDataTable table {
-            min-width: 640px;
+            min-width: 720px;
+            width: max-content;
+            table-layout: auto;
         }
         .logDataTable th {
             text-align: right;
+            white-space: nowrap;
+        }
+        .logDataTable td {
+            white-space: nowrap;
+        }
+        .logDataTable thead tr.ui-filter-row {
+            display: none;
+        }
+        .logDataTable thead tr.ui-filter-row.is-visible {
+            display: table-row;
+        }
+        .logDataTable .ui-sortable-column {
+            white-space: nowrap;
+        }
+        .logDataTable .ui-sortable-column-icon {
+            display: inline-block !important;
+            margin-inline-start: 6px;
+            vertical-align: middle;
+            float: none !important;
         }
         .logDataTable .ui-column-title {
             font-weight: 700;
             text-align: right;
+            display: inline-flex;
+            align-items: center;
         }
         .logDataTable .ui-column-filter {
             width: 100%;
@@ -789,11 +818,11 @@
             justify-content: flex-start;
             gap: 6px;
             direction: rtl;
-            width: 100%;
+            max-width: 100%;
         }
         .logHeaderLabel {
-            flex: 1 1 auto;
             text-align: right;
+            white-space: nowrap;
         }
         .logFilterToggle {
             border: 0;
@@ -1005,6 +1034,11 @@
                                         </ui:fragment>
                                     </div>
                                 </div>
+                                <ui:fragment rendered="#{not empty runDetailsView.selectedFeature.descriptionHtml}">
+                                    <div class="featureDesc">
+                                        <h:outputText value="#{runDetailsView.selectedFeature.descriptionHtml}" escape="false"/>
+                                    </div>
+                                </ui:fragment>
                             </div>
                         </div>
 
@@ -1084,8 +1118,6 @@
                                                                                  rows="50"
                                                                                  rowsPerPageTemplate="50"
                                                                                  paginatorPosition="bottom"
-                                                                                 scrollable="true"
-                                                                                 scrollWidth="100%"
                                                                                  sortMode="multiple"
                                                                                  emptyMessage="אין נתונים"
                                                                                  styleClass="logDataTable">
@@ -1484,6 +1516,12 @@
                 var nowVisible = !input.classList.contains('is-visible');
                 input.classList.toggle('is-visible', nowVisible);
                 btn.classList.toggle('is-active', nowVisible);
+                var anyVisible = Array.prototype.slice.call(
+                    filterRow.querySelectorAll('.ui-column-filter')
+                ).some(function(el) {
+                    return el.classList.contains('is-visible');
+                });
+                filterRow.classList.toggle('is-visible', anyVisible);
                 if (nowVisible) {
                     input.focus();
                 }
@@ -1495,7 +1533,7 @@
                 e.preventDefault();
                 e.stopPropagation();
                 toggleColumnFilter(btn);
-            });
+            }, true);
         })();
         //]]>
     </script>

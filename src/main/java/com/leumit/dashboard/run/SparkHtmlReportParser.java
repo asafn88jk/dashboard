@@ -49,6 +49,7 @@ public final class SparkHtmlReportParser {
             List<String> path,
             String status,
             List<String> tags,
+            String descriptionHtml,
             String startTime,
             String endTime,
             List<Scenario> scenarios
@@ -211,11 +212,12 @@ public final class SparkHtmlReportParser {
             Element detailHead = featureEl.selectFirst("div.test-contents .detail-head");
             String start = textOf(detailHead == null ? null : detailHead.selectFirst("span.badge-success"));
             String end = textOf(detailHead == null ? null : detailHead.selectFirst("span.badge-danger"));
+            String descriptionHtml = extractDescriptionHtml(detailHead, featureEl);
 
             List<String> path = parseArrowPath(name);
             List<Scenario> scenarios = parseScenarios(featureEl, includeLogs);
 
-            features.add(new Feature(name, path, status, tags, start, end, scenarios));
+            features.add(new Feature(name, path, status, tags, descriptionHtml, start, end, scenarios));
         }
 
         return features;
@@ -524,6 +526,37 @@ public final class SparkHtmlReportParser {
 
     private static String textOf(Element el) {
         return el == null ? "" : el.text().trim();
+    }
+
+    private static String htmlOf(Element el) {
+        return el == null ? "" : el.html().trim();
+    }
+
+    private static String extractDescriptionHtml(Element detailHead, Element featureEl) {
+        String description = cleanDescriptionHtml(htmlOf(
+                detailHead == null ? null : detailHead.selectFirst("div.m-t-10.m-l-5")
+        ));
+
+        if (description.isBlank()) {
+            description = cleanDescriptionHtml(htmlOf(featureEl.selectFirst(
+                    "div.test-detail > p.desc, div.test-detail > p.test-desc, div.test-detail > p.description"
+            )));
+        }
+
+        if (description.isBlank()) {
+            description = cleanDescriptionHtml(htmlOf(
+                    detailHead == null ? null : detailHead.selectFirst(".test-desc, .test-description, p.desc, p.description")
+            ));
+        }
+
+        return description;
+    }
+
+    private static String cleanDescriptionHtml(String html) {
+        if (html == null || html.isBlank()) return "";
+        String cleaned = html.replace('\u00A0', ' ').trim();
+        cleaned = cleaned.replaceAll("(?i)(<br\\s*/?>\\s*)+$", "");
+        return cleaned.trim();
     }
 
     private static <T> T firstNonNull(T a, T b) {
