@@ -49,9 +49,10 @@
         }
 
         .details-menubar-wrap {
-            background: linear-gradient(90deg, var(--brand-1), var(--brand-2) 55%, var(--brand-3));
-            padding: 6px 12px;
-            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.18);
+            background: #ffffff;
+            padding: 8px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            box-shadow: 0 1px 6px rgba(15, 23, 42, 0.08);
             position: sticky;
             top: 0;
             z-index: 1100;
@@ -61,10 +62,10 @@
             border: 0 !important;
             padding: 0;
             direction: rtl;
-            display: grid;
-            grid-template-columns: auto 1fr auto;
+            display: flex;
             align-items: center;
-            column-gap: 12px;
+            justify-content: flex-start;
+            gap: 12px;
         }
         .details-menubar.ui-widget,
         .details-menubar.ui-widget-content {
@@ -73,37 +74,28 @@
             box-shadow: none !important;
         }
         .details-menubar .ui-menubar-root-list {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            gap: 6px;
-            align-items: center;
-            direction: rtl;
-            justify-content: center;
-            grid-column: 2;
+            display: none;
         }
         .details-menubar .ui-menuitem-link {
-            color: var(--brand-ink);
+            color: #0f172a;
             border-radius: 8px;
             padding: 6px 10px;
             font-weight: 700;
         }
-        .details-menubar .ui-menubar-root-list > .ui-menuitem > .ui-menuitem-link {
-            background: rgba(255, 255, 255, 0.08);
-        }
         .details-menubar .ui-menuitem-link .ui-menuitem-icon {
-            color: var(--brand-ink);
+            color: #334155;
         }
         .details-menubar .ui-menuitem-link.ui-state-hover,
         .details-menubar .ui-menuitem-link.ui-state-focus {
-            background: rgba(255, 255, 255, 0.16);
+            background: #f1f5f9;
         }
         .details-menubar .ui-menu-list {
             background: #ffffff;
             border-radius: 10px;
             border: 1px solid #e5e7eb;
             padding: 4px 0;
-            min-width: 180px;
+            min-width: 200px;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
         }
         .details-menubar .ui-menu-list .ui-menuitem-link {
             color: #111827;
@@ -119,23 +111,20 @@
             gap: 10px;
             flex: 0 0 auto;
         }
-        .details-menubar .ui-menubar-custom-end {
-            grid-column: 1;
-            justify-self: start;
-        }
         .details-menubar .ui-menubar-custom-start {
-            grid-column: 3;
-            justify-self: end;
+            width: 100%;
+            justify-content: flex-start;
+            flex: 1 1 auto;
         }
         .menu-brand {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            color: #5b2c65;
+            color: #0f172a;
             font-weight: 800;
             font-size: 13px;
             flex-direction: row-reverse;
-            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+            text-shadow: none;
         }
         .menu-logo {
             height: 28px;
@@ -151,6 +140,7 @@
             display: inline-flex;
             align-items: center;
             gap: 10px;
+            flex-wrap: wrap;
         }
         .menu-back-link {
             display: inline-flex;
@@ -159,8 +149,10 @@
             padding: 6px 10px;
             border-radius: 8px;
             font-weight: 700;
-            color: var(--brand-ink);
+            color: #0f172a;
             text-decoration: none;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
         }
         .menu-back-link .pi {
             font-size: 14px;
@@ -173,21 +165,61 @@
             border-radius: 999px;
             font-size: 11px;
             font-weight: 800;
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            background: rgba(255, 255, 255, 0.14);
-            color: #ffffff;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #334155;
         }
         .menuBadge .menuBadgeLabel {
-            opacity: 0.9;
+            color: #64748b;
         }
         .menuBadge .menuBadgeValue {
             font-variant-numeric: tabular-nums;
+            color: #0f172a;
         }
         .menuBadge-total {
-            background: rgba(255, 255, 255, 0.2);
+            background: #eef2ff;
+            border-color: #c7d2fe;
+            color: #3730a3;
+        }
+        .menuBadge-pass {
+            background: #e8f7ee;
+            border-color: #9dddb4;
+            color: #166534;
+        }
+        .menuBadge-fail {
+            background: #fee2e2;
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
+        .menuBadge-known {
+            background: #fef3c7;
+            border-color: #fcd34d;
+            color: #92400e;
+        }
+        .menuBadge-skip {
+            background: #e2e8f0;
+            border-color: #cbd5f5;
+            color: #475569;
+        }
+        .menu-run-picker {
+            border-radius: 8px;
+            font-weight: 700;
+        }
+        .menu-run-picker .ui-button {
+            border-radius: 8px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            color: #0f172a;
+        }
+        .menu-run-picker .ui-button:hover,
+        .menu-run-picker .ui-button:focus {
+            background: #e2e8f0;
+        }
+        .menu-run-picker .ui-button .ui-button-icon-left {
+            color: #334155;
         }
         .details-menubar .menu-current > .ui-menuitem-link {
-            background: rgba(255, 255, 255, 0.22);
+            background: #e2e8f0;
         }
 
         .page {
@@ -783,10 +815,14 @@
         .logDataTable td {
             white-space: nowrap;
         }
-        .logDataTable thead tr.ui-filter-row {
+        .logDataTable thead tr.ui-filter-row,
+        .logDataTable thead tr.ui-datatable-filter-row,
+        .logDataTable thead tr.ui-datatable-filter {
             display: none;
         }
-        .logDataTable thead tr.ui-filter-row.is-visible {
+        .logDataTable thead tr.ui-filter-row.is-visible,
+        .logDataTable thead tr.ui-datatable-filter-row.is-visible,
+        .logDataTable thead tr.ui-datatable-filter.is-visible {
             display: table-row;
         }
         .logDataTable .ui-sortable-column {
@@ -902,36 +938,79 @@
 
 <h:body>
     <div class="details-menubar-wrap">
-        <p:menubar styleClass="details-menubar" model="#{runDetailsView.menubarModel}">
+        <p:menubar styleClass="details-menubar">
             <f:facet name="start">
                 <div class="menu-start">
+                    <h:link outcome="index" styleClass="ui-menuitem-link menu-back-link">
+                        <i class="pi pi-arrow-right"></i>
+                        <span>חזרה</span>
+                    </h:link>
+
                     <div class="menu-brand">
                         <h:graphicImage value="#{request.contextPath}/resources/images/tamar.svg"
                                         styleClass="menu-logo" />
                         <span>#{runDetailsView.filter}</span>
                     </div>
-                    <div class="menu-badges">
+
+                    <p:menuButton value="#{runDetailsView.runMenuLabel}"
+                                  icon="pi pi-calendar"
+                                  model="#{runDetailsView.menubarModel}"
+                                  styleClass="menu-run-picker" />
+
+                    <div class="menu-badges menu-meta">
+                        <ui:fragment rendered="#{not empty runDetailsView.filter}">
+                            <span class="menuBadge">
+                                <span class="menuBadgeLabel">סט הרצה</span>
+                                <span class="menuBadgeValue">#{runDetailsView.filter}</span>
+                            </span>
+                        </ui:fragment>
                         <ui:fragment rendered="#{not empty runDetailsView.item}">
-                            <span class="menuBadge menuBadge-env">
+                            <span class="menuBadge">
                                 <span class="menuBadgeLabel">סביבה</span>
                                 <span class="menuBadgeValue">#{runDetailsView.item}</span>
                             </span>
                         </ui:fragment>
                         <ui:fragment rendered="#{not empty runDetailsView.summary}">
+                            <span class="menuBadge">
+                                <span class="menuBadgeLabel">התחלה</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.run.startTime}</span>
+                            </span>
+                            <span class="menuBadge">
+                                <span class="menuBadgeLabel">סיום</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.run.endTime}</span>
+                            </span>
+                            <span class="menuBadge">
+                                <span class="menuBadgeLabel">משך</span>
+                                <span class="menuBadgeValue">#{runDetailsView.runDurationText()}</span>
+                            </span>
+                        </ui:fragment>
+                    </div>
+
+                    <ui:fragment rendered="#{not empty runDetailsView.summary}">
+                        <div class="menu-badges menu-totals">
                             <span class="menuBadge menuBadge-total">
                                 <span class="menuBadgeLabel">סה״כ</span>
                                 <span class="menuBadgeValue">#{runDetailsView.summary.totals.total}</span>
                             </span>
-                        </ui:fragment>
-                    </div>
+                            <span class="menuBadge menuBadge-pass">
+                                <span class="menuBadgeLabel">עבר</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.pass}</span>
+                            </span>
+                            <span class="menuBadge menuBadge-fail">
+                                <span class="menuBadgeLabel">נכשל</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.fail}</span>
+                            </span>
+                            <span class="menuBadge menuBadge-known">
+                                <span class="menuBadgeLabel">באג ידוע</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.knownBug}</span>
+                            </span>
+                            <span class="menuBadge menuBadge-skip">
+                                <span class="menuBadgeLabel">דולג</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.skip}</span>
+                            </span>
+                        </div>
+                    </ui:fragment>
                 </div>
-            </f:facet>
-
-            <f:facet name="end">
-                <h:link outcome="index" styleClass="ui-menuitem-link menu-back-link">
-                    <i class="pi pi-arrow-right"></i>
-                    <span>חזרה</span>
-                </h:link>
             </f:facet>
         </p:menubar>
     </div>
@@ -1497,41 +1576,62 @@
         })();
 
         (function() {
+            function findFilterRow(tableRoot) {
+                if (!tableRoot) return null;
+                var row = tableRoot.querySelector('thead tr.ui-filter-row, thead tr.ui-datatable-filter-row, thead tr.ui-datatable-filter');
+                if (row) return row;
+                var rows = tableRoot.querySelectorAll('thead tr');
+                for (var i = 0; i < rows.length; i++) {
+                    if (rows[i].querySelector('.ui-column-filter')) {
+                        return rows[i];
+                    }
+                }
+                return null;
+            }
+
             function toggleColumnFilter(btn) {
                 var wrap = btn.closest('.logTableWrap');
                 if (!wrap) return;
-                var table = wrap.querySelector('.ui-datatable');
-                if (!table) return;
-                var idx = parseInt(btn.getAttribute('data-col-idx') || '', 10);
+                var tableRoot = wrap.querySelector('.ui-datatable') || wrap;
+                var dataTable = tableRoot.querySelector('table') || tableRoot;
+                var filterRow = findFilterRow(dataTable);
+                if (!filterRow) return;
+
+                var headerCell = btn.closest('th');
+                var idx = headerCell ? headerCell.cellIndex : parseInt(btn.getAttribute('data-col-idx') || '', 10);
                 if (Number.isNaN(idx)) return;
 
-                var filterRow = table.querySelector('thead tr.ui-filter-row');
-                if (!filterRow) return;
                 var cells = filterRow.querySelectorAll('th');
-                var cell = cells[idx];
+                var cell = cells[idx] || null;
                 if (!cell) return;
-                var input = cell.querySelector('.ui-column-filter');
+                var input = cell.querySelector('.ui-column-filter') || cell.querySelector('input, textarea, select');
                 if (!input) return;
 
                 var nowVisible = !input.classList.contains('is-visible');
                 input.classList.toggle('is-visible', nowVisible);
+                input.style.display = nowVisible ? 'block' : 'none';
                 btn.classList.toggle('is-active', nowVisible);
+
                 var anyVisible = Array.prototype.slice.call(
-                    filterRow.querySelectorAll('.ui-column-filter')
+                    filterRow.querySelectorAll('.ui-column-filter, input, textarea, select')
                 ).some(function(el) {
-                    return el.classList.contains('is-visible');
+                    return el.classList.contains('is-visible') || el.style.display === 'block';
                 });
+                filterRow.style.display = anyVisible ? 'table-row' : 'none';
                 filterRow.classList.toggle('is-visible', anyVisible);
                 if (nowVisible) {
                     input.focus();
                 }
             }
 
-            document.addEventListener('click', function(e) {
+            document.addEventListener('mousedown', function(e) {
                 var btn = e.target.closest('.js-log-filter-toggle');
                 if (!btn) return;
                 e.preventDefault();
                 e.stopPropagation();
+                if (e.stopImmediatePropagation) {
+                    e.stopImmediatePropagation();
+                }
                 toggleColumnFilter(btn);
             }, true);
         })();

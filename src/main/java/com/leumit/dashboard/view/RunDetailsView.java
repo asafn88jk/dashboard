@@ -20,7 +20,6 @@ import org.jsoup.select.Elements;
 import org.primefaces.event.NodeSelectEvent;
 import org.primefaces.model.menu.DefaultMenuItem;
 import org.primefaces.model.menu.DefaultMenuModel;
-import org.primefaces.model.menu.DefaultSubMenu;
 import org.primefaces.model.menu.MenuModel;
 import org.primefaces.model.DefaultTreeNode;
 import org.primefaces.model.TreeNode;
@@ -98,6 +97,7 @@ public class RunDetailsView implements Serializable {
     private final Map<String, String> runLabelsByFolder = new HashMap<>();
     private final Map<String, List<RunStatus>> scenarioHistoryByKey = new HashMap<>();
     private MenuModel menubarModel = new DefaultMenuModel();
+    private String runMenuLabel = "בחירת תאריך";
 
     public RunDetailsView(DashboardFiltersProperties props, RunPicker runPicker, ReportCache reportCache) {
         this.props = props;
@@ -895,6 +895,8 @@ public class RunDetailsView implements Serializable {
 
     public MenuModel getMenubarModel() { return menubarModel; }
 
+    public String getRunMenuLabel() { return runMenuLabel; }
+
     public String runLabel(String runFolder) {
         if (runFolder == null) return "";
         return runLabelsByFolder.getOrDefault(runFolder, runFolder);
@@ -902,18 +904,14 @@ public class RunDetailsView implements Serializable {
 
     private void buildMenubarModel() {
         DefaultMenuModel model = new DefaultMenuModel();
-        String label = (run == null || run.isBlank()) ? "בחירת תאריך" : runLabel(run);
-        DefaultSubMenu submenu = DefaultSubMenu.builder()
-                .label(label)
-                .icon("pi pi-calendar")
-                .build();
+        runMenuLabel = (run == null || run.isBlank()) ? "בחירת תאריך" : runLabel(run);
 
         if (recentRuns == null || recentRuns.isEmpty()) {
             DefaultMenuItem empty = DefaultMenuItem.builder()
                     .value("ללא היסטוריה")
                     .disabled(true)
                     .build();
-            submenu.getElements().add(empty);
+            model.addElement(empty);
         } else {
             for (RunOption r : recentRuns) {
                 DefaultMenuItem item = DefaultMenuItem.builder()
@@ -925,11 +923,10 @@ public class RunDetailsView implements Serializable {
                 item.setParam("filter", filter);
                 item.setParam("item", this.item);
                 item.setParam("run", r.runFolder());
-                submenu.getElements().add(item);
+                model.addElement(item);
             }
         }
 
-        model.addElement(submenu);
         this.menubarModel = model;
     }
 
