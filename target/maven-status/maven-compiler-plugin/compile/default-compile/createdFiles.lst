@@ -1,9 +1,0 @@
-com/leumit/dashboard/DocumentService.class
-com/leumit/dashboard/model/ExtentSummary$Totals.class
-com/leumit/dashboard/Document.class
-com/leumit/dashboard/run/ReportCutoff.class
-com/leumit/dashboard/config/DashboardConfig.class
-com/leumit/dashboard/model/ExtentSummary.class
-com/leumit/dashboard/model/ExtentSummary$FeatureSummary.class
-com/leumit/dashboard/IconView.class
-com/leumit/dashboard/model/ExtentSummary$Run.class
