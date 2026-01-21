@@ -938,81 +938,83 @@
 
 <h:body>
     <div class="details-menubar-wrap">
-        <p:menubar styleClass="details-menubar">
-            <f:facet name="start">
-                <div class="menu-start">
-                    <h:link outcome="index" styleClass="ui-menuitem-link menu-back-link">
-                        <i class="pi pi-arrow-right"></i>
-                        <span>חזרה</span>
-                    </h:link>
+        <h:form id="menubarForm" prependId="false">
+            <p:menubar styleClass="details-menubar">
+                <f:facet name="start">
+                    <div class="menu-start">
+                        <h:link outcome="index" styleClass="ui-menuitem-link menu-back-link">
+                            <i class="pi pi-arrow-right"></i>
+                            <span>חזרה</span>
+                        </h:link>
 
-                    <div class="menu-brand">
-                        <h:graphicImage value="#{request.contextPath}/resources/images/tamar.svg"
-                                        styleClass="menu-logo" />
-                        <span>#{runDetailsView.filter}</span>
-                    </div>
-
-                    <p:menuButton value="#{runDetailsView.runMenuLabel}"
-                                  icon="pi pi-calendar"
-                                  model="#{runDetailsView.menubarModel}"
-                                  styleClass="menu-run-picker" />
-
-                    <div class="menu-badges menu-meta">
-                        <ui:fragment rendered="#{not empty runDetailsView.filter}">
-                            <span class="menuBadge">
-                                <span class="menuBadgeLabel">סט הרצה</span>
-                                <span class="menuBadgeValue">#{runDetailsView.filter}</span>
-                            </span>
-                        </ui:fragment>
-                        <ui:fragment rendered="#{not empty runDetailsView.item}">
-                            <span class="menuBadge">
-                                <span class="menuBadgeLabel">סביבה</span>
-                                <span class="menuBadgeValue">#{runDetailsView.item}</span>
-                            </span>
-                        </ui:fragment>
-                        <ui:fragment rendered="#{not empty runDetailsView.summary}">
-                            <span class="menuBadge">
-                                <span class="menuBadgeLabel">התחלה</span>
-                                <span class="menuBadgeValue">#{runDetailsView.summary.run.startTime}</span>
-                            </span>
-                            <span class="menuBadge">
-                                <span class="menuBadgeLabel">סיום</span>
-                                <span class="menuBadgeValue">#{runDetailsView.summary.run.endTime}</span>
-                            </span>
-                            <span class="menuBadge">
-                                <span class="menuBadgeLabel">משך</span>
-                                <span class="menuBadgeValue">#{runDetailsView.runDurationText()}</span>
-                            </span>
-                        </ui:fragment>
-                    </div>
-
-                    <ui:fragment rendered="#{not empty runDetailsView.summary}">
-                        <div class="menu-badges menu-totals">
-                            <span class="menuBadge menuBadge-total">
-                                <span class="menuBadgeLabel">סה״כ</span>
-                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.total}</span>
-                            </span>
-                            <span class="menuBadge menuBadge-pass">
-                                <span class="menuBadgeLabel">עבר</span>
-                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.pass}</span>
-                            </span>
-                            <span class="menuBadge menuBadge-fail">
-                                <span class="menuBadgeLabel">נכשל</span>
-                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.fail}</span>
-                            </span>
-                            <span class="menuBadge menuBadge-known">
-                                <span class="menuBadgeLabel">באג ידוע</span>
-                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.knownBug}</span>
-                            </span>
-                            <span class="menuBadge menuBadge-skip">
-                                <span class="menuBadgeLabel">דולג</span>
-                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.skip}</span>
-                            </span>
+                        <div class="menu-brand">
+                            <h:graphicImage value="#{request.contextPath}/resources/images/tamar.svg"
+                                            styleClass="menu-logo" />
+                            <span>#{runDetailsView.filter}</span>
                         </div>
-                    </ui:fragment>
-                </div>
-            </f:facet>
-        </p:menubar>
+
+                        <p:menuButton value="#{runDetailsView.runMenuLabel}"
+                                      icon="pi pi-calendar"
+                                      model="#{runDetailsView.menubarModel}"
+                                      styleClass="menu-run-picker" />
+
+                        <div class="menu-badges menu-meta">
+                            <ui:fragment rendered="#{not empty runDetailsView.filter}">
+                                <span class="menuBadge">
+                                    <span class="menuBadgeLabel">סט הרצה</span>
+                                    <span class="menuBadgeValue">#{runDetailsView.filter}</span>
+                                </span>
+                            </ui:fragment>
+                            <ui:fragment rendered="#{not empty runDetailsView.item}">
+                                <span class="menuBadge">
+                                    <span class="menuBadgeLabel">סביבה</span>
+                                    <span class="menuBadgeValue">#{runDetailsView.item}</span>
+                                </span>
+                            </ui:fragment>
+                            <ui:fragment rendered="#{not empty runDetailsView.summary}">
+                                <span class="menuBadge">
+                                    <span class="menuBadgeLabel">התחלה</span>
+                                    <span class="menuBadgeValue">#{runDetailsView.summary.run.startTime}</span>
+                                </span>
+                                <span class="menuBadge">
+                                    <span class="menuBadgeLabel">סיום</span>
+                                    <span class="menuBadgeValue">#{runDetailsView.summary.run.endTime}</span>
+                                </span>
+                                <span class="menuBadge">
+                                    <span class="menuBadgeLabel">משך</span>
+                                    <span class="menuBadgeValue">#{runDetailsView.runDurationText()}</span>
+                                </span>
+                            </ui:fragment>
+                        </div>
+
+                        <ui:fragment rendered="#{not empty runDetailsView.summary}">
+                            <div class="menu-badges menu-totals">
+                                <span class="menuBadge menuBadge-total">
+                                    <span class="menuBadgeLabel">סה״כ</span>
+                                    <span class="menuBadgeValue">#{runDetailsView.summary.totals.total}</span>
+                                </span>
+                                <span class="menuBadge menuBadge-pass">
+                                    <span class="menuBadgeLabel">עבר</span>
+                                    <span class="menuBadgeValue">#{runDetailsView.summary.totals.pass}</span>
+                                </span>
+                                <span class="menuBadge menuBadge-fail">
+                                    <span class="menuBadgeLabel">נכשל</span>
+                                    <span class="menuBadgeValue">#{runDetailsView.summary.totals.fail}</span>
+                                </span>
+                                <span class="menuBadge menuBadge-known">
+                                    <span class="menuBadgeLabel">באג ידוע</span>
+                                    <span class="menuBadgeValue">#{runDetailsView.summary.totals.knownBug}</span>
+                                </span>
+                                <span class="menuBadge menuBadge-skip">
+                                    <span class="menuBadgeLabel">דולג</span>
+                                    <span class="menuBadgeValue">#{runDetailsView.summary.totals.skip}</span>
+                                </span>
+                            </div>
+                        </ui:fragment>
+                    </div>
+                </f:facet>
+            </p:menubar>
+        </h:form>
     </div>
 
     <div class="page">

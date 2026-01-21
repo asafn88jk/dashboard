@@ -1,31 +1,5 @@
 package com.leumit.dashboard.view;
 
-import com.leumit.dashboard.config.DashboardFiltersProperties;
-import com.leumit.dashboard.model.ExtentSummary;
-import com.leumit.dashboard.repo.RunPicker;
-import com.leumit.dashboard.run.RunHistoryAnalyzer;
-import com.leumit.dashboard.run.ReportCache;
-import com.leumit.dashboard.run.ReportCutoff;
-import com.leumit.dashboard.run.SparkHtmlReportParser;
-import com.leumit.dashboard.run.SparkHtmlReportParser.Feature;
-import com.leumit.dashboard.run.SparkHtmlReportParser.Log;
-import com.leumit.dashboard.run.SparkHtmlReportParser.ParsedReport;
-import com.leumit.dashboard.run.SparkHtmlReportParser.Scenario;
-import com.leumit.dashboard.run.SparkHtmlReportParser.Step;
-import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
-import org.primefaces.event.NodeSelectEvent;
-import org.primefaces.model.menu.DefaultMenuItem;
-import org.primefaces.model.menu.DefaultMenuModel;
-import org.primefaces.model.menu.MenuModel;
-import org.primefaces.model.DefaultTreeNode;
-import org.primefaces.model.TreeNode;
-import org.springframework.context.annotation.Scope;
-import org.springframework.stereotype.Component;
-
 import java.io.Serializable;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -35,9 +9,47 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import org.primefaces.event.NodeSelectEvent;
+import org.primefaces.model.DefaultTreeNode;
+import org.primefaces.model.TreeNode;
+import org.primefaces.model.menu.DefaultMenuItem;
+import org.primefaces.model.menu.DefaultMenuModel;
+import org.primefaces.model.menu.MenuModel;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
+
+import com.leumit.dashboard.config.DashboardFiltersProperties;
+import com.leumit.dashboard.model.ExtentSummary;
+import com.leumit.dashboard.repo.RunPicker;
+import com.leumit.dashboard.run.ReportCache;
+import com.leumit.dashboard.run.ReportCutoff;
+import com.leumit.dashboard.run.RunHistoryAnalyzer;
+import com.leumit.dashboard.run.SparkHtmlReportParser;
+import com.leumit.dashboard.run.SparkHtmlReportParser.Feature;
+import com.leumit.dashboard.run.SparkHtmlReportParser.Log;
+import com.leumit.dashboard.run.SparkHtmlReportParser.ParsedReport;
+import com.leumit.dashboard.run.SparkHtmlReportParser.Scenario;
+import com.leumit.dashboard.run.SparkHtmlReportParser.Step;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component("runDetailsView")
@@ -911,7 +923,7 @@ public class RunDetailsView implements Serializable {
                     .value("ללא היסטוריה")
                     .disabled(true)
                     .build();
-            model.addElement(empty);
+            model.getElements().add(empty);
         } else {
             for (RunOption r : recentRuns) {
                 DefaultMenuItem item = DefaultMenuItem.builder()
@@ -923,7 +935,7 @@ public class RunDetailsView implements Serializable {
                 item.setParam("filter", filter);
                 item.setParam("item", this.item);
                 item.setParam("run", r.runFolder());
-                model.addElement(item);
+                model.getElements().add(item);
             }
         }
 
