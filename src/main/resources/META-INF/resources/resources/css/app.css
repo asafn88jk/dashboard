@@ -115,23 +115,162 @@ body.app {
     gap: 18px;
 }
 
+.sidebar form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
 .sideitem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     width: 100%;
     text-align: center;
     font-size: 12px;
     opacity: 0.95;
+    color: inherit;
+    text-decoration: none;
+    padding: 10px 0;
+    border-radius: 12px;
+    gap: 6px;
 }
 
 .sideitem i {
     display: block;
     font-size: 22px;
-    margin-bottom: 6px;
+    margin-bottom: 0;
+}
+
+.sideitem:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.sideitem.active {
+    background: rgba(255, 255, 255, 0.22);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+    font-weight: 700;
+}
+
+.side-divider {
+    height: 1px;
+    width: 62%;
+    margin: 4px auto 8px;
+    background: rgba(255, 255, 255, 0.3);
 }
 
 /* Main */
 .main {
     flex: 1;
     padding: 12px 14px;
+}
+
+/* Graph view */
+.graph-layout {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 16px;
+}
+
+.graph-controls {
+    background: #ffffff;
+    border: 1px solid #e9d5ff;
+    border-radius: 14px;
+    padding: 10px;
+    box-shadow: 0 10px 24px rgba(124, 58, 237, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.graph-section-title {
+    font-weight: 900;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.graph-group {
+    border: 1px solid #f1e6ff;
+    border-radius: 10px;
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    background: #faf7ff;
+}
+
+.graph-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.graph-group-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: #6b21a8;
+}
+
+.graph-group-actions .sep {
+    color: #94a3b8;
+}
+
+.graph-checkbox .ui-selectmanycheckbox-item {
+    margin-bottom: 6px;
+}
+
+.graph-checkbox label {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.graph-dates {
+    display: grid;
+    gap: 8px;
+}
+
+.graph-date-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #4b5563;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.graph-panel {
+    min-height: 420px;
+}
+
+.graph-card {
+    background: radial-gradient(circle at 40% 40%, #ffffff 0%, #f3f4f6 55%, #e5e7eb 100%);
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 10px 12px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.graph-title {
+    font-weight: 900;
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.graph-chart {
+    width: 100%;
+    height: 420px;
+}
+
+@media (max-width: 1100px) {
+    .graph-layout {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Filters (top pills) */

@@ -39,65 +39,199 @@
 
     <div class="shell">
         <aside class="sidebar">
-            <div class="sideitem"><i class="pi pi-calendar"></i><span>Planner</span></div>
-            <div class="sideitem"><i class="pi pi-check-square"></i><span>Jira</span></div>
-            <div class="sideitem"><i class="pi pi-file"></i><span>ALMS</span></div>
-            <div class="sideitem"><i class="pi pi-envelope"></i><span>Contact</span></div>
+            <h:form id="sidebarForm">
+                <p:commandLink styleClass="sideitem #{dashboardView.activePage eq 'dashboard' ? 'active' : ''}"
+                               update="sidebarForm mainContent"
+                               process="@this">
+                    <f:setPropertyActionListener target="#{dashboardView.activePage}" value="dashboard"/>
+                    <i class="pi pi-home"></i>
+                    <span>Dashboard</span>
+                </p:commandLink>
+                <p:commandLink styleClass="sideitem #{dashboardView.activePage eq 'graph' ? 'active' : ''}"
+                               update="sidebarForm mainContent"
+                               process="@this">
+                    <f:setPropertyActionListener target="#{dashboardView.activePage}" value="graph"/>
+                    <i class="pi pi-chart-line"></i>
+                    <span>Graph</span>
+                </p:commandLink>
+
+                <div class="side-divider"></div>
+                <div class="sideitem"><i class="pi pi-calendar"></i><span>Planner</span></div>
+                <div class="sideitem"><i class="pi pi-check-square"></i><span>Jira</span></div>
+                <div class="sideitem"><i class="pi pi-file"></i><span>ALMS</span></div>
+                <div class="sideitem"><i class="pi pi-envelope"></i><span>Contact</span></div>
+            </h:form>
         </aside>
 
         <main class="main">
-            <h:form id="filtersForm">
-                <p:poll interval="#{dashboardView.autoRefreshSeconds}"
-                        listener="#{dashboardView.refreshCards}"
-                        update="cards"
-                        process="@this"
-                        autoStart="true"
-                        rendered="#{dashboardView.autoRefreshEnabled}" />
-                <div class="filters">
-                    <ui:repeat value="#{dashboardView.filters}" var="f">
-                        <p:commandLink styleClass="pill #{dashboardView.activeFilter eq f ? 'active' : ''}"
-                                       update="filtersForm cards"
-                                       process="@this">
-                            <f:setPropertyActionListener target="#{dashboardView.activeFilter}" value="#{f}"/>
-                            <h:outputText value="#{f}"/>
-                        </p:commandLink>
-                    </ui:repeat>
-                </div>
-            </h:form>
-
-            <h:panelGroup id="cards" layout="block" styleClass="cards">
-                <ui:repeat value="#{dashboardView.cards}" var="card">
-                    <section class="card">
-
-                        <h:link outcome="details" styleClass="card-title-link">
-                            <!-- params MUST be inside h:link -->
-                            <f:param name="filter" value="#{card.filterName}" />
-                            <f:param name="item"   value="#{card.itemTitle}" />
-                            <f:param name="run"    value="#{card.runFolder}" />
-
-                            <!-- clickable content -->
-                            <div class="card-title">#{card.title}</div>
-                        </h:link>
-
-                        <div class="gauge">
-                            <p:chart value="#{card.doughnutJson}" styleClass="donut" />
-                            <div class="gauge-center">#{card.passPct}%</div>
+            <h:panelGroup id="mainContent" layout="block">
+                <ui:fragment rendered="#{dashboardView.activePage eq 'dashboard'}">
+                    <h:form id="filtersForm">
+                        <p:poll interval="#{dashboardView.autoRefreshSeconds}"
+                                listener="#{dashboardView.refreshCards}"
+                                update="cards"
+                                process="@this"
+                                autoStart="true"
+                                rendered="#{dashboardView.autoRefreshEnabled}" />
+                        <div class="filters">
+                            <ui:repeat value="#{dashboardView.filters}" var="f">
+                                <p:commandLink styleClass="pill #{dashboardView.activeFilter eq f ? 'active' : ''}"
+                                               update="filtersForm cards"
+                                               process="@this">
+                                    <f:setPropertyActionListener target="#{dashboardView.activeFilter}" value="#{f}"/>
+                                    <h:outputText value="#{f}"/>
+                                </p:commandLink>
+                            </ui:repeat>
                         </div>
+                    </h:form>
 
-                        <div class="card-meta">
-                            <div class="meta-line">משך ריצה #{card.duration}</div>
-                            <div class="meta-line">
-                                <h:outputText value="#{card.startedAt}">
-                                    <f:convertDateTime type="localDateTime" pattern="HH:mm dd.MM.yyyy"/>
-                                </h:outputText>
-                            </div>
+                    <h:panelGroup id="cards" layout="block" styleClass="cards">
+                        <ui:repeat value="#{dashboardView.cards}" var="card">
+                            <section class="card">
+
+                                <h:link outcome="details" styleClass="card-title-link">
+                                    <!-- params MUST be inside h:link -->
+                                    <f:param name="filter" value="#{card.filterName}" />
+                                    <f:param name="item"   value="#{card.itemTitle}" />
+                                    <f:param name="run"    value="#{card.runFolder}" />
+
+                                    <!-- clickable content -->
+                                    <div class="card-title">#{card.title}</div>
+                                </h:link>
+
+                                <div class="gauge">
+                                    <p:chart value="#{card.doughnutJson}" styleClass="donut" />
+                                    <div class="gauge-center">#{card.passPct}%</div>
+                                </div>
+
+                                <div class="card-meta">
+                                    <div class="meta-line">משך ריצה #{card.duration}</div>
+                                    <div class="meta-line">
+                                        <h:outputText value="#{card.startedAt}">
+                                            <f:convertDateTime type="localDateTime" pattern="HH:mm dd.MM.yyyy"/>
+                                        </h:outputText>
+                                    </div>
+                                </div>
+
+                            </section>
+                        </ui:repeat>
+                    </h:panelGroup>
+                </ui:fragment>
+
+                <ui:fragment rendered="#{dashboardView.activePage eq 'graph'}">
+                    <h:form id="graphForm">
+                        <div class="graph-layout">
+                            <h:panelGroup id="graphControls" layout="block" styleClass="graph-controls">
+                                <div class="graph-section">
+                                    <div class="graph-section-title">סט הרצה</div>
+                                    <ui:repeat value="#{dashboardView.graphGroups}" var="grp">
+                                        <div class="graph-group">
+                                            <div class="graph-group-header">
+                                                <span class="graph-group-title">#{grp.name}</span>
+                                                <span class="graph-group-actions">
+                                                    <p:commandLink value="הכל"
+                                                                   process="@this"
+                                                                   update="graphControls graphPanel"
+                                                                   oncomplete="initGraphTooltips()"
+                                                                   actionListener="#{dashboardView.selectAllGroup(grp.id)}"/>
+                                                    <span class="sep">|</span>
+                                                    <p:commandLink value="כלום"
+                                                                   process="@this"
+                                                                   update="graphControls graphPanel"
+                                                                   oncomplete="initGraphTooltips()"
+                                                                   actionListener="#{dashboardView.selectNoneGroup(grp.id)}"/>
+                                                </span>
+                                            </div>
+                                            <p:selectManyCheckbox value="#{dashboardView.graphSelectedSetIds}"
+                                                                  layout="pageDirection"
+                                                                  styleClass="graph-checkbox">
+                                                <f:selectItems value="#{grp.items}" var="it"
+                                                               itemLabel="#{it.label}" itemValue="#{it.id}"/>
+                                                <p:ajax update="graphPanel" oncomplete="initGraphTooltips()"/>
+                                            </p:selectManyCheckbox>
+                                        </div>
+                                    </ui:repeat>
+                                </div>
+
+                                <div class="graph-section">
+                                    <div class="graph-section-title">סטטוסים</div>
+                                    <p:selectManyCheckbox value="#{dashboardView.graphSelectedStatuses}"
+                                                          layout="pageDirection"
+                                                          styleClass="graph-checkbox">
+                                        <f:selectItems value="#{dashboardView.graphStatusOptions}" var="st"
+                                                       itemLabel="#{st.label}" itemValue="#{st.value}"/>
+                                        <p:ajax update="graphPanel" oncomplete="initGraphTooltips()"/>
+                                    </p:selectManyCheckbox>
+                                </div>
+
+                                <div class="graph-section">
+                                    <div class="graph-section-title">טווח תאריכים</div>
+                                    <div class="graph-dates">
+                                        <div class="graph-date">
+                                            <span class="graph-date-label">מתאריך</span>
+                                            <p:datePicker value="#{dashboardView.graphStartDate}"
+                                                          pattern="dd.MM.yyyy"
+                                                          showIcon="true">
+                                                <p:ajax update="graphPanel" oncomplete="initGraphTooltips()"/>
+                                            </p:datePicker>
+                                        </div>
+                                        <div class="graph-date">
+                                            <span class="graph-date-label">עד תאריך</span>
+                                            <p:datePicker value="#{dashboardView.graphEndDate}"
+                                                          pattern="dd.MM.yyyy"
+                                                          showIcon="true">
+                                                <p:ajax update="graphPanel" oncomplete="initGraphTooltips()"/>
+                                            </p:datePicker>
+                                        </div>
+                                    </div>
+                                </div>
+                            </h:panelGroup>
+
+                            <h:panelGroup id="graphPanel" layout="block" styleClass="graph-panel">
+                                <div class="graph-card">
+                                    <div class="graph-title">#{dashboardView.graphTitle}</div>
+                                    <p:chart id="graphChart"
+                                             widgetVar="graphChart"
+                                             value="#{dashboardView.graphChartJson}"
+                                             styleClass="graph-chart"
+                                             style="height:420px;" />
+                                </div>
+                            </h:panelGroup>
                         </div>
-
-                    </section>
-                </ui:repeat>
+                    </h:form>
+                </ui:fragment>
             </h:panelGroup>
 
         </main>
     </div>
+
+    <script>
+        function initGraphTooltips() {
+            if (typeof PF !== 'function') return;
+            var widget = PF('graphChart');
+            if (!widget || !widget.chart) return;
+            var chart = widget.chart;
+            if (!chart.options.plugins) chart.options.plugins = {};
+            if (!chart.options.plugins.tooltip) chart.options.plugins.tooltip = {};
+            if (!chart.options.plugins.tooltip.callbacks) chart.options.plugins.tooltip.callbacks = {};
+
+            chart.options.plugins.tooltip.callbacks.label = function(ctx) {
+                var label = ctx.dataset && ctx.dataset.label ? ctx.dataset.label : '';
+                var y = ctx.parsed && typeof ctx.parsed.y === 'number' ? ctx.parsed.y : null;
+                var abs = null;
+                if (ctx.dataset && Array.isArray(ctx.dataset.absCounts)) {
+                    abs = ctx.dataset.absCounts[ctx.dataIndex];
+                }
+                var pctText = y === null ? '' : (y.toFixed(1) + '%');
+                if (abs === null || abs === undefined) {
+                    return label + ': ' + pctText;
+                }
+                return label + ': ' + pctText + ' (' + abs + ')';
+            };
+            chart.update();
+        }
+
+        document.addEventListener('DOMContentLoaded', initGraphTooltips);
+    </script>
 </h:body>
 </html>

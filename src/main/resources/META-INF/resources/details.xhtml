@@ -49,13 +49,16 @@
         }
 
         .details-menubar-wrap {
-            background: #ffffff;
+            background: transparent;
             padding: 8px 12px;
             border-bottom: 1px solid #e2e8f0;
-            box-shadow: 0 1px 6px rgba(15, 23, 42, 0.08);
+            box-shadow: none;
             position: sticky;
             top: 0;
             z-index: 1100;
+        }
+        #menubarForm {
+            width: 100%;
         }
         .details-menubar {
             background: transparent !important;
@@ -68,6 +71,15 @@
             gap: 12px;
             font-size: 13px;
             overflow: visible;
+            width: 100%;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+        .details-menubar.ui-menubar {
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
         }
         .details-menubar.ui-widget,
         .details-menubar.ui-widget-content {
@@ -113,6 +125,10 @@
             align-items: center;
             gap: 10px;
             flex: 0 0 auto;
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            padding: 0;
         }
         .details-menubar .ui-menubar-custom-start {
             width: 100%;
@@ -128,6 +144,10 @@
             font-size: 14px;
             flex-direction: row-reverse;
             text-shadow: none;
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            padding: 4px 10px;
+            border-radius: 999px;
         }
         .menu-logo {
             height: 28px;
@@ -917,9 +937,8 @@
             inset-inline-end: 8px;
             z-index: 2;
         }
-        }
 
-        .lightbox {
+        .report-lightbox {
             position: fixed;
             inset: 0;
             background: rgba(15, 23, 42, 0.75);
@@ -928,14 +947,18 @@
             justify-content: center;
             z-index: 9999;
             padding: 24px;
+            pointer-events: none;
         }
-        .lightbox.is-open { display: flex; }
-        .lightbox-content {
+        .report-lightbox.is-open {
+            display: flex;
+            pointer-events: auto;
+        }
+        .report-lightbox-content {
             position: relative;
             max-width: min(92vw, 1200px);
             max-height: 88vh;
         }
-        .lightbox-img {
+        .report-lightbox-img {
             display: block;
             max-width: 100%;
             max-height: 88vh;
@@ -943,7 +966,7 @@
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
             background: #fff;
         }
-        .lightbox-close {
+        .report-lightbox-close {
             position: absolute;
             top: -14px;
             left: -14px;
@@ -974,82 +997,80 @@
 <h:body>
     <div class="details-menubar-wrap">
         <h:form id="menubarForm" prependId="false">
-            <p:menubar styleClass="details-menubar">
-                <f:facet name="start">
-                    <div class="menu-start">
-                        <div class="menu-left">
-                            <h:link outcome="index" styleClass="ui-menuitem-link menu-back-link">
-                                <i class="pi pi-arrow-right"></i>
-                                <span>חזרה</span>
-                            </h:link>
+            <div class="details-menubar">
+                <div class="menu-start">
+                    <div class="menu-left">
+                        <h:link outcome="index" styleClass="ui-menuitem-link menu-back-link">
+                            <i class="pi pi-arrow-right"></i>
+                            <span>חזרה</span>
+                        </h:link>
 
-                            <div class="menu-brand">
-                                <h:graphicImage value="#{request.contextPath}/resources/images/tamar.svg"
-                                                styleClass="menu-logo" />
-                            </div>
-
-                            <p:menuButton value="#{runDetailsView.runMenuLabel}"
-                                          icon="pi pi-calendar"
-                                          model="#{runDetailsView.menubarModel}"
-                                          styleClass="menu-run-picker" />
+                        <div class="menu-brand">
+                            <h:graphicImage value="#{request.contextPath}/resources/images/tamar.svg"
+                                            styleClass="menu-logo" />
                         </div>
 
-                        <div class="menu-badges menu-meta">
-                            <ui:fragment rendered="#{not empty runDetailsView.item}">
-                                <span class="menuBadge">
-                                    <span class="menuBadgeLabel">סט הרצה</span>
-                                    <span class="menuBadgeValue">#{runDetailsView.item}</span>
-                                </span>
-                            </ui:fragment>
-                            <ui:fragment rendered="#{not empty runDetailsView.environmentLabel}">
-                                <span class="menuBadge">
-                                    <span class="menuBadgeLabel">סביבה</span>
-                                    <span class="menuBadgeValue">#{runDetailsView.environmentLabel}</span>
-                                </span>
-                            </ui:fragment>
-                            <ui:fragment rendered="#{not empty runDetailsView.summary}">
-                                <span class="menuBadge">
-                                    <span class="menuBadgeLabel">התחלה</span>
-                                    <span class="menuBadgeValue">#{runDetailsView.summary.run.startTime}</span>
-                                </span>
-                                <span class="menuBadge">
-                                    <span class="menuBadgeLabel">סיום</span>
-                                    <span class="menuBadgeValue">#{runDetailsView.summary.run.endTime}</span>
-                                </span>
-                                <span class="menuBadge">
-                                    <span class="menuBadgeLabel">משך</span>
-                                    <span class="menuBadgeValue">#{runDetailsView.runDurationText()}</span>
-                                </span>
-                            </ui:fragment>
-                        </div>
+                        <p:menuButton value="#{runDetailsView.runMenuLabel}"
+                                      icon="pi pi-calendar"
+                                      model="#{runDetailsView.menubarModel}"
+                                      styleClass="menu-run-picker" />
+                    </div>
 
+                    <div class="menu-badges menu-meta">
+                        <ui:fragment rendered="#{not empty runDetailsView.item}">
+                            <span class="menuBadge">
+                                <span class="menuBadgeLabel">סט הרצה</span>
+                                <span class="menuBadgeValue">#{runDetailsView.item}</span>
+                            </span>
+                        </ui:fragment>
+                        <ui:fragment rendered="#{not empty runDetailsView.environmentLabel}">
+                            <span class="menuBadge">
+                                <span class="menuBadgeLabel">סביבה</span>
+                                <span class="menuBadgeValue">#{runDetailsView.environmentLabel}</span>
+                            </span>
+                        </ui:fragment>
                         <ui:fragment rendered="#{not empty runDetailsView.summary}">
-                            <div class="menu-badges menu-totals">
-                                <span class="menuBadge menuBadge-total">
-                                    <span class="menuBadgeLabel">סה״כ</span>
-                                    <span class="menuBadgeValue">#{runDetailsView.summary.totals.total}</span>
-                                </span>
-                                <span class="menuBadge menuBadge-pass">
-                                    <span class="menuBadgeLabel">עבר</span>
-                                    <span class="menuBadgeValue">#{runDetailsView.summary.totals.pass}</span>
-                                </span>
-                                <span class="menuBadge menuBadge-fail">
-                                    <span class="menuBadgeLabel">נכשל</span>
-                                    <span class="menuBadgeValue">#{runDetailsView.summary.totals.fail}</span>
-                                </span>
-                                <span class="menuBadge menuBadge-known">
-                                    <span class="menuBadgeLabel">באג ידוע</span>
-                                    <span class="menuBadgeValue">#{runDetailsView.summary.totals.knownBug}</span>
-                                </span>
-                                <span class="menuBadge menuBadge-skip">
-                                    <span class="menuBadgeLabel">דולג</span>
-                                    <span class="menuBadgeValue">#{runDetailsView.summary.totals.skip}</span>
-                                </span>
-                            </div>
+                            <span class="menuBadge">
+                                <span class="menuBadgeLabel">התחלה</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.run.startTime}</span>
+                            </span>
+                            <span class="menuBadge">
+                                <span class="menuBadgeLabel">סיום</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.run.endTime}</span>
+                            </span>
+                            <span class="menuBadge">
+                                <span class="menuBadgeLabel">משך</span>
+                                <span class="menuBadgeValue">#{runDetailsView.runDurationText()}</span>
+                            </span>
                         </ui:fragment>
                     </div>
-                </f:facet>
-            </p:menubar>
+
+                    <ui:fragment rendered="#{not empty runDetailsView.summary}">
+                        <div class="menu-badges menu-totals">
+                            <span class="menuBadge menuBadge-total">
+                                <span class="menuBadgeLabel">סה״כ</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.total}</span>
+                            </span>
+                            <span class="menuBadge menuBadge-pass">
+                                <span class="menuBadgeLabel">עבר</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.pass}</span>
+                            </span>
+                            <span class="menuBadge menuBadge-fail">
+                                <span class="menuBadgeLabel">נכשל</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.fail}</span>
+                            </span>
+                            <span class="menuBadge menuBadge-known">
+                                <span class="menuBadgeLabel">באג ידוע</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.knownBug}</span>
+                            </span>
+                            <span class="menuBadge menuBadge-skip">
+                                <span class="menuBadgeLabel">דולג</span>
+                                <span class="menuBadgeValue">#{runDetailsView.summary.totals.skip}</span>
+                            </span>
+                        </div>
+                    </ui:fragment>
+                </div>
+            </div>
         </h:form>
     </div>
 
@@ -1373,10 +1394,10 @@
 
     </div>
 
-    <div id="lightbox" class="lightbox" aria-hidden="true">
-        <div class="lightbox-content">
-            <button type="button" class="lightbox-close" aria-label="Close">x</button>
-            <img class="lightbox-img" alt="screenshot"/>
+    <div id="lightbox" class="report-lightbox" aria-hidden="true">
+        <div class="report-lightbox-content">
+            <button type="button" class="report-lightbox-close" aria-label="Close">x</button>
+            <img class="report-lightbox-img" alt="screenshot"/>
         </div>
     </div>
 
@@ -1385,8 +1406,8 @@
         (function() {
             var lb = document.getElementById('lightbox');
             if (!lb) return;
-            var img = lb.querySelector('.lightbox-img');
-            var closeBtn = lb.querySelector('.lightbox-close');
+            var img = lb.querySelector('.report-lightbox-img');
+            var closeBtn = lb.querySelector('.report-lightbox-close');
 
             function openLightbox(src) {
                 if (!src) return;
@@ -1408,6 +1429,13 @@
                 if (link) {
                     e.preventDefault();
                     openLightbox(link.getAttribute('href'));
+                    return;
+                }
+                var flImg = e.target.closest('img[data-featherlight]');
+                if (flImg) {
+                    e.preventDefault();
+                    var src = flImg.getAttribute('data-featherlight') || flImg.getAttribute('src');
+                    openLightbox(src);
                     return;
                 }
                 if (e.target === lb) {
@@ -1614,8 +1642,14 @@
                 ).some(function(el) {
                     return el.classList.contains('is-visible') || el.style.display === 'block';
                 });
-                filterRow.style.display = anyVisible ? 'table-row' : 'none';
-                filterRow.classList.toggle('is-visible', anyVisible);
+                var hasHeaderTitle = !!filterRow.querySelector('.ui-column-title, .logHeader, .logHeaderLabel');
+                var isDedicatedFilterRow = filterRow.classList.contains('ui-filter-row')
+                    || filterRow.classList.contains('ui-datatable-filter-row')
+                    || filterRow.classList.contains('ui-datatable-filter');
+                if (isDedicatedFilterRow && !hasHeaderTitle) {
+                    filterRow.style.display = anyVisible ? 'table-row' : 'none';
+                    filterRow.classList.toggle('is-visible', anyVisible);
+                }
                 if (nowVisible) {
                     input.focus();
                 }

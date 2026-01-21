@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Map;
@@ -98,6 +99,35 @@ public class RunPicker {
     } catch (IOException ignored) {
       return Optional.empty();
     }
+  }
+
+  public List<PickedRun> pickRunsBetween(Path baseDir, Pattern dirNamePattern, Instant from, Instant to) throws IOException {
+    if (!Files.isDirectory(baseDir)) return List.of();
+
+    CandidateFetch fetch = fetchCandidates(baseDir, dirNamePattern);
+    List<Candidate> filtered = new ArrayList<>();
+    for (Candidate c : fetch.candidates()) {
+      Instant ts = c.lastModified().toInstant();
+      if (from != null && ts.isBefore(from)) continue;
+      if (to != null && ts.isAfter(to)) continue;
+      filtered.add(c);
+    }
+    filtered.sort(Comparator.comparing(Candidate::lastModified));
+
+    List<PickedRun> out = new ArrayList<>();
+    for (Candidate c : filtered) {
+      try {
+        ExtentSummary summary = reportCache.getSummary(c.reportPath());
+        if (summary == null) continue;
+        if (SparkHtmlReportParser.isBeforeCutoff(summary, c.reportPath(), ReportCutoff.CUTOFF_DATE)) {
+          continue;
+        }
+        out.add(new PickedRun(c.runDir(), c.reportPath(), c.lastModified().toMillis(), summary));
+      } catch (IOException ignored) {
+        // skip bad report
+      }
+    }
+    return out;
   }
 
   private CandidateFetch fetchCandidates(Path baseDir, Pattern dirNamePattern) throws IOException {
