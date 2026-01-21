@@ -911,7 +911,7 @@ public class RunDetailsView implements Serializable {
                     .value("ללא היסטוריה")
                     .disabled(true)
                     .build();
-            submenu.addElement(empty);
+            submenu.getElements().add(empty);
         } else {
             for (RunOption r : recentRuns) {
                 DefaultMenuItem item = DefaultMenuItem.builder()
@@ -923,7 +923,7 @@ public class RunDetailsView implements Serializable {
                 item.setParam("filter", filter);
                 item.setParam("item", this.item);
                 item.setParam("run", r.runFolder());
-                submenu.addElement(item);
+                submenu.getElements().add(item);
             }
         }
 
